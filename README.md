@@ -1,11 +1,12 @@
 # AskVerse Mini
 
-A lightweight multi-agent AI system for document question answering, built with LangChain and LangGraph.
+A lightweight multi-agent AI system that combines document question answering with web search capabilities, built with LangChain and LangGraph. It can answer questions based on your local PDF documents and enhance responses with real-time web search results.
 
 ## Features
 
 - Multi-agent architecture for robust question answering
 - Support for multiple PDF documents
+- Web search integration using Tavily
 - Hybrid retrieval system (dense + sparse)
 - Interactive command-line interface
 - Configurable logging
@@ -48,10 +49,15 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. Create a `.env` file with your OpenAI API key:
+4. Create a `.env` file with your API keys:
 ```bash
-OPENAI_API_KEY=your_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
+TAVILY_API_KEY=your_tavily_api_key_here
 ```
+
+You can get your API keys from:
+- OpenAI API key: https://platform.openai.com/api-keys
+- Tavily API key: https://tavily.com/
 
 ## Usage
 
@@ -83,4 +89,4 @@ python main.py
 
 ## License
 
-MIT License 
+MIT License
