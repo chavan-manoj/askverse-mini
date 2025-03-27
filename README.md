@@ -39,9 +39,17 @@ cd askverse-mini
 ```
 
 2. Create a virtual environment:
+
+Using standard venv:
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python -m venv askverse-mini-venv
+source askverse-mini-venv/bin/activate  # On Windows: askverse-mini-venv\Scripts\activate
+```
+
+Or using Conda:
+```bash
+conda create -n askverse-mini-venv python=3.9
+conda activate askverse-mini-venv
 ```
 
 3. Install dependencies:
