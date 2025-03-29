@@ -106,21 +106,28 @@ class DocumentProcessor:
         )
         
         # Create retrievers
-        dense_retriever = self.vectorstore.as_retriever(search_kwargs={"k": 10})
-        sparse_retriever = BM25Retriever.from_documents(self.sparse_documents, k=10)
+        self.dense_retriever = self.vectorstore.as_retriever(search_kwargs={"k": 10})
+        self.sparse_retriever = BM25Retriever.from_documents(self.sparse_documents, k=10)
         
-        # Create ensemble retriever
-        self.ensemble_retriever = EnsembleRetriever(
-            retrievers=[dense_retriever, sparse_retriever],
-            weights=[0.5, 0.5],
-            c=0
-        )
+    def get_retriever(self, kind: str = "ensemble"):
+        """Get the retriever based on the kind
         
-    def get_retriever(self):
-        """Get the ensemble retriever"""
-        if not self.ensemble_retriever:
-            raise ValueError("Retrievers not set up. Call setup_retrievers() first.")
-        return self.ensemble_retriever
+        Args:
+            kind: Type of retriever to return (ensemble, dense, sparse)
+        """
+
+        if kind == "ensemble":
+            return EnsembleRetriever(
+                retrievers=[self.dense_retriever, self.sparse_retriever],
+                weights=[0.5, 0.5],
+                c=0
+            )
+        elif kind == "dense":
+            return self.dense_retriever
+        elif kind == "sparse":
+            return self.sparse_retriever
+        else:
+            raise ValueError(f"Invalid retriever kind: {kind}")
         
     def get_document_info(self) -> Dict[str, Any]:
         """

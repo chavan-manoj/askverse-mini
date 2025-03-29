@@ -38,6 +38,8 @@ def main():
     qa_system_wo_web = AskVerse()
     qa_system_wo_web.initialize(processor, use_web_search=False)
 
+    qa_system_wo_web_dense = AskVerse()
+    qa_system_wo_web_dense.initialize(processor, use_web_search=False, retriever_kind="dense")
 
     print("\nAskVerse Mini is ready! Ask questions like ""What is Google's environment policy?"", ""How is Google helping people make more sustainable choices through its products?""")
     print("\nType 'quit' at anytime to exit.")
@@ -59,10 +61,19 @@ def main():
         try:
             # Get answer
             start_time = time.time()
+            answer_wo_web_dense = qa_system_wo_web_dense.ask(question)
+            
+            # Print answer
+            print(f"\nAnswer (without web search and dense retriever only) (time taken: {round(time.time() - start_time, 2)} seconds):")
+            print("-" * 80)
+            print(answer_wo_web_dense)
+            print("-" * 80)
+
+            start_time = time.time()
             answer_wo_web = qa_system_wo_web.ask(question)
             
             # Print answer
-            print(f"\nAnswer (without web search) (time taken: {time.time() - start_time} seconds):")
+            print(f"\nAnswer (without web search and dense & sparse retrievers) (time taken: {round(time.time() - start_time, 2)} seconds):")
             print("-" * 80)
             print(answer_wo_web)
             print("-" * 80)
@@ -71,7 +82,7 @@ def main():
             answer = qa_system.ask(question)
             
             # Print answer
-            print(f"\nAnswer (with web search) (time taken: {time.time() - start_time} seconds):")
+            print(f"\nAnswer (with web search) (time taken: {round(time.time() - start_time, 2)} seconds):")
             print("-" * 80)
             print(answer)
             print("-" * 80)

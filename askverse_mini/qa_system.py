@@ -40,13 +40,14 @@ class AskVerse:
         self.tools = []
         self.graph = None
         
-    def initialize(self, document_processor: DocumentProcessor = None, use_web_search: bool = True):
+    def initialize(self, document_processor: DocumentProcessor = None, use_web_search: bool = True, retriever_kind: str = "ensemble"):
         """
         Initialize the system with document processor and tools
         
         Args:
             document_processor: Optional DocumentProcessor instance
             use_web_search: Whether to use web search tool
+            retriever_kind: Type of retriever to use (ensemble, dense, sparse)
         """
         if use_web_search:
             # Set up web search tool
@@ -56,7 +57,7 @@ class AskVerse:
         # Set up document retriever if provided
         if document_processor:
             retriever_tool = create_retriever_tool(
-                document_processor.get_retriever(),
+                document_processor.get_retriever(retriever_kind),
                 "retrieve_document_answers",
                 "Extensive information from the loaded documents."
             )
