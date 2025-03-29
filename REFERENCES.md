@@ -30,7 +30,7 @@ This document lists key references for the technologies, algorithms, and techniq
 - **Implementation Reference**: [rank_bm25 Documentation](https://github.com/dorianbrown/rank_bm25)
 
 #### Hybrid Search
-- **Research Paper**: "Dense vs. Sparse: A Comparative Study of Retrieval Strategies" (2022)
+- **Research Paper**: "Efficient and Effective Retrieval of Dense-Sparse Hybrid Vectors using Graph-based Approximate Nearest Neighbor Search" (2024)
 - [Paper Link](https://arxiv.org/abs/2410.20381)
 - **Technical Blog**: [Hybrid Search Explained](https://www.pinecone.io/learn/hybrid-search/)
 
@@ -62,20 +62,6 @@ This document lists key references for the technologies, algorithms, and techniq
 - "Reading Wikipedia to Answer Open-Domain Questions" (Chen et al., 2017)
 - "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks" (Lewis et al., 2020)
 - "RAG: Retrieval-Augmented Generation for Large Language Models" (2023)
-
-## Books and Textbooks
-
-### 1. Information Retrieval
-- "Introduction to Information Retrieval" by Manning, Raghavan, and Schütze (2008)
-- "Modern Information Retrieval" by Baeza-Yates and Ribeiro-Neto (2011)
-
-### 2. Natural Language Processing
-- "Speech and Language Processing" by Jurafsky and Martin (2023)
-- "Natural Language Processing with Transformers" by Tunstall, von Werra, and Wolf (2022)
-
-### 3. Machine Learning
-- "Deep Learning" by Goodfellow, Bengio, and Courville (2016)
-- "Hands-On Machine Learning with Scikit-Learn, Keras, and TensorFlow" by Géron (2022)
 
 ## Online Resources and Tutorials
 

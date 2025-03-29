@@ -10,7 +10,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.pydantic_v1 import BaseModel, Field
+from pydantic.v1 import BaseModel, Field
 from langchain.tools.retriever import create_retriever_tool
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langgraph.graph import END, StateGraph
@@ -40,16 +40,18 @@ class AskVerse:
         self.tools = []
         self.graph = None
         
-    def initialize(self, document_processor: DocumentProcessor = None):
+    def initialize(self, document_processor: DocumentProcessor = None, use_web_search: bool = True):
         """
         Initialize the system with document processor and tools
         
         Args:
             document_processor: Optional DocumentProcessor instance
+            use_web_search: Whether to use web search tool
         """
-        # Set up web search tool
-        web_search = TavilySearchResults(max_results=4)
-        self.tools.append(web_search)
+        if use_web_search:
+            # Set up web search tool
+            web_search = TavilySearchResults(max_results=4)
+            self.tools.append(web_search)
         
         # Set up document retriever if provided
         if document_processor:

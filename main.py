@@ -3,6 +3,7 @@ Entry point for AskVerse Mini
 """
 
 import os
+import time
 from dotenv import load_dotenv
 from askverse_mini.document_processor import DocumentProcessor
 from askverse_mini.qa_system import AskVerse
@@ -17,7 +18,7 @@ def main():
     # Load multiple PDF documents
     pdf_dir = "pdfs"  # Directory containing PDF files
     for pdf_file in os.listdir(pdf_dir):
-        if pdf_file.endswith(".pdf"):
+        if pdf_file.endswith(".pdf") and pdf_file.startswith("google"):
             pdf_path = os.path.join(pdf_dir, pdf_file)
             print(f"Loading PDF: {pdf_file}")
             processor.load_pdf(pdf_path)
@@ -27,21 +28,19 @@ def main():
     
     # Print document information
     doc_info = processor.get_document_info()
-    print("\nLoaded Documents:")
-    print(f"Total documents: {doc_info['num_documents']}")
-    print(f"Total chunks: {doc_info['total_chunks']}")
     for doc_id, info in doc_info['documents'].items():
-        print(f"\nDocument: {doc_id}")
-        print(f"File: {info['file_name']}")
-        print(f"Pages: {info['total_pages']}")
-        print(f"Chunks: {info['num_chunks']}")
+        print(f"\nLoaded document: {doc_id} with {info['num_chunks']} chunks and {info['total_pages']} pages.")
     
     # Initialize QA system
     qa_system = AskVerse()
     qa_system.initialize(processor)
-    
-    print("\nAskVerse Mini is ready! Ask questions like 'What is Microsft's environment policy?', 'How is Google helping people make more sustainable choices'")
-    print("\nType 'quit' to exit.")
+
+    qa_system_wo_web = AskVerse()
+    qa_system_wo_web.initialize(processor, use_web_search=False)
+
+
+    print("\nAskVerse Mini is ready! Ask questions like ""What is Google's environment policy?"", ""How is Google helping people make more sustainable choices through its products?""")
+    print("\nType 'quit' at anytime to exit.")
     print("-" * 80)
     
     while True:
@@ -59,10 +58,20 @@ def main():
             
         try:
             # Get answer
+            start_time = time.time()
+            answer_wo_web = qa_system_wo_web.ask(question)
+            
+            # Print answer
+            print(f"\nAnswer (without web search) (time taken: {time.time() - start_time} seconds):")
+            print("-" * 80)
+            print(answer_wo_web)
+            print("-" * 80)
+
+            start_time = time.time()
             answer = qa_system.ask(question)
             
             # Print answer
-            print("\nAnswer:")
+            print(f"\nAnswer (with web search) (time taken: {time.time() - start_time} seconds):")
             print("-" * 80)
             print(answer)
             print("-" * 80)
