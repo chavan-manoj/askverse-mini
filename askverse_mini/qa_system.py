@@ -162,6 +162,10 @@ class AskVerse:
             fully answer the question, utilizing any relevant
             information you find.
 
+            IMPORTANT: If the information in the context is outdated or from a previous year,
+            explicitly mention this in your answer. For example:
+            "According to the 2023 report..." or "Based on 2023 data..."
+
             Question: {question}
             Context: {context}
 
@@ -240,15 +244,49 @@ class AskVerse:
         # Prompt
         prompt = PromptTemplate(
             template="""
-            You are evaluating the quality of an answer to a question. Rate the answer on three dimensions:
-            1. Relevance: How well does the answer address the question?
-            2. Completeness: Does the answer provide all necessary information?
-            3. Coherence: Is the answer well-structured and easy to understand?
-            
+            You are evaluating the quality of an answer to a question. Rate the answer on three dimensions with specific criteria:
+
+            CRITICAL: First, check if the question mentions a specific year (e.g., 2025). If it does, and the answer contains information from a different year (e.g., 2023), you MUST:
+            1. Give a maximum relevance score of 0.6
+            2. Give a maximum completeness score of 0.6
+            3. Deduct additional points if the year difference is not acknowledged in the answer
+
+            1. Relevance (0-1):
+               - 0.0-0.3: Answer is completely off-topic, irrelevant, or contains outdated information without acknowledging it
+               - 0.4-0.6: Answer is somewhat related but contains outdated information (even if acknowledged) or misses key aspects
+               - 0.7-0.8: Answer addresses most aspects of the question with current information
+               - 0.9-1.0: Answer perfectly matches the question's intent with current information
+               STRICT RULE: If the question asks about a specific year and the answer contains information from a different year, maximum score is 0.6
+
+            2. Completeness (0-1):
+               - 0.0-0.3: Answer is missing critical information or only contains outdated information
+               - 0.4-0.6: Answer covers basic information but lacks details or contains outdated information
+               - 0.7-0.8: Answer provides most required information with current data
+               - 0.9-1.0: Answer is comprehensive and complete with current information
+               STRICT RULE: If the question asks about a specific year and the answer contains information from a different year, maximum score is 0.6
+
+            3. Coherence (0-1):
+               - 0.0-0.3: Answer is disorganized and hard to follow
+               - 0.4-0.6: Answer has some structure but could be clearer
+               - 0.7-0.8: Answer is well-structured and mostly clear
+               - 0.9-1.0: Answer is perfectly organized and crystal clear
+
             Question: {question}
             Answer: {answer}
-            
-            Provide scores between 0 and 1 for each dimension.
+
+            IMPORTANT RULES:
+            1. If the question mentions a specific year and the answer contains information from a different year:
+               - Maximum relevance score: 0.6
+               - Maximum completeness score: 0.6
+               - Additional deduction if year difference is not acknowledged
+            2. A perfect score (1.0) is ONLY possible if:
+               - The information is current and matches the question's timeframe
+               - The answer fully addresses the question
+               - The information is complete and up-to-date
+            3. Be extremely critical of temporal relevance - deduct points for any outdated information
+
+            Provide scores between 0 and 1 for each dimension based on these criteria.
+            Be critical and honest in your evaluation.
             """,
             input_variables=["question", "answer"],
         )
