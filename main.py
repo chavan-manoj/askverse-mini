@@ -32,11 +32,11 @@ def main():
         print(f"\nLoaded document: {doc_id} with {info['num_chunks']} chunks and {info['total_pages']} pages.")
     
     # Initialize QA system
-    qa_system = AskVerse()
-    qa_system.initialize(processor)
+    # qa_system = AskVerse()
+    # qa_system.initialize(processor)
 
-    qa_system_wo_web = AskVerse()
-    qa_system_wo_web.initialize(processor, use_web_search=False)
+    # qa_system_wo_web = AskVerse()
+    # qa_system_wo_web.initialize(processor, use_web_search=False)
 
     qa_system_wo_web_dense = AskVerse()
     qa_system_wo_web_dense.initialize(processor, use_web_search=False, retriever_kind="dense")
@@ -69,23 +69,23 @@ def main():
             print(answer_wo_web_dense)
             print("-" * 80)
 
-            start_time = time.time()
-            answer_wo_web = qa_system_wo_web.ask(question)
+            # start_time = time.time()
+            # answer_wo_web = qa_system_wo_web.ask(question)
             
-            # Print answer
-            print(f"\nAnswer (without web search and dense & sparse retrievers) (time taken: {round(time.time() - start_time, 2)} seconds):")
-            print("-" * 80)
-            print(answer_wo_web)
-            print("-" * 80)
+            # # Print answer
+            # print(f"\nAnswer (without web search and dense & sparse retrievers) (time taken: {round(time.time() - start_time, 2)} seconds):")
+            # print("-" * 80)
+            # print(answer_wo_web)
+            # print("-" * 80)
 
-            start_time = time.time()
-            answer = qa_system.ask(question)
+            # start_time = time.time()
+            # answer = qa_system.ask(question)
             
-            # Print answer
-            print(f"\nAnswer (with web search) (time taken: {round(time.time() - start_time, 2)} seconds):")
-            print("-" * 80)
-            print(answer)
-            print("-" * 80)
+            # # Print answer
+            # print(f"\nAnswer (with web search) (time taken: {round(time.time() - start_time, 2)} seconds):")
+            # print("-" * 80)
+            # print(answer)
+            # print("-" * 80)
             
         except Exception as e:
             print(f"\nError: {str(e)}")

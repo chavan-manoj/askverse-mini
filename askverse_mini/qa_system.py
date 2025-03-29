@@ -28,14 +28,16 @@ load_dotenv()
 class AgentState(BaseModel):
     """State for the agent workflow"""
     messages: List[Any]
+    metrics: Dict[str, float] = Field(default_factory=dict)
 
 class AskVerse:
     """Main QA system implementing multi-agent architecture"""
     
     def __init__(self):
         """Initialize the QA system"""
-        self.llm = ChatOpenAI(model_name="gpt-4", temperature=0, streaming=True)
-        self.agent_llm = ChatOpenAI(model_name="gpt-4", temperature=0, streaming=True)
+        model_name = os.getenv("MODEL_NAME")
+        self.llm = ChatOpenAI(model_name=model_name, temperature=0, streaming=True)
+        self.agent_llm = ChatOpenAI(model_name=model_name, temperature=0, streaming=True)
         self.str_output_parser = StrOutputParser()
         self.tools = []
         self.graph = None
@@ -77,6 +79,7 @@ class AskVerse:
         workflow.add_node("retrieve", retrieve)
         workflow.add_node("improve", self._improve_node)
         workflow.add_node("generate", self._generate_node)
+        workflow.add_node("evaluate", self._evaluate_node)
         
         # Set entry point
         workflow.set_entry_point("agent")
@@ -92,7 +95,8 @@ class AskVerse:
         )
         
         workflow.add_conditional_edges("retrieve", self._score_documents)
-        workflow.add_edge("generate", END)
+        workflow.add_edge("generate", "evaluate")
+        workflow.add_edge("evaluate", END)
         workflow.add_edge("improve", "agent")
         
         # Compile the graph
@@ -218,6 +222,71 @@ class AskVerse:
         
         return "generate" if score == "yes" else "improve"
         
+    def _evaluate_node(self, state: AgentState) -> Dict[str, Any]:
+        """Node for evaluating answer quality"""
+        messages = state.messages
+        question = messages[0].content
+        answer = messages[-1].content
+        
+        # Evaluation model
+        class Evaluation(BaseModel):
+            relevance: float = Field(description="Relevance score between 0 and 1")
+            completeness: float = Field(description="Completeness score between 0 and 1")
+            coherence: float = Field(description="Coherence score between 0 and 1")
+            
+        # LLM with tool and validation
+        llm_with_tool = self.llm.with_structured_output(Evaluation)
+        
+        # Prompt
+        prompt = PromptTemplate(
+            template="""
+            You are evaluating the quality of an answer to a question. Rate the answer on three dimensions:
+            1. Relevance: How well does the answer address the question?
+            2. Completeness: Does the answer provide all necessary information?
+            3. Coherence: Is the answer well-structured and easy to understand?
+            
+            Question: {question}
+            Answer: {answer}
+            
+            Provide scores between 0 and 1 for each dimension.
+            """,
+            input_variables=["question", "answer"],
+        )
+        
+        # Chain
+        chain = prompt | llm_with_tool
+        
+        # Evaluate
+        logger.info("Evaluating answer quality...")
+        evaluation = chain.invoke({"question": question, "answer": answer})
+        
+        # Calculate average score
+        avg_score = (evaluation.relevance + evaluation.completeness + evaluation.coherence) / 3
+        
+        # Create metrics dictionary
+        metrics = {
+            "relevance": evaluation.relevance,
+            "completeness": evaluation.completeness,
+            "coherence": evaluation.coherence,
+            "average_score": avg_score
+        }
+        
+        # Format answer with metrics
+        formatted_answer = f"""
+{answer}
+
+Quality Metrics:
+- Relevance: {evaluation.relevance:.2f}
+- Completeness: {evaluation.completeness:.2f}
+- Coherence: {evaluation.coherence:.2f}
+- Average Score: {avg_score:.2f}
+"""
+        
+        return {
+            "messages": [AIMessage(content=formatted_answer)],
+            "metrics": metrics
+        }
+        
     def ask(self, question: str) -> str:
         """
         Ask a question and get an answer
@@ -226,7 +295,7 @@ class AskVerse:
             question: The question to ask
             
         Returns:
-            str: The generated answer
+            str: The generated answer with quality metrics
             
         Raises:
             ValueError: If the system is not initialized or if no answer is generated
@@ -239,13 +308,24 @@ class AskVerse:
         
         # Run the graph
         final_answer = None
+        metrics = {}
         for output in self.graph.stream(initial_state):
             logger.info(f"Processing output: {output}")
             
             # Handle nested output structure
             if isinstance(output, dict):
+                # Check for 'evaluate' key first since it contains the final formatted answer
+                if 'evaluate' in output and isinstance(output['evaluate'], dict):
+                    messages = output['evaluate'].get('messages', [])
+                    if messages:
+                        last_message = messages[-1]
+                        if isinstance(last_message, AIMessage):
+                            final_answer = last_message.content
+                            logger.info(f"Found evaluated answer: {final_answer}")
+                            if 'metrics' in output['evaluate']:
+                                metrics = output['evaluate']['metrics']
                 # Check for 'generate' key
-                if 'generate' in output and isinstance(output['generate'], dict):
+                elif 'generate' in output and isinstance(output['generate'], dict):
                     messages = output['generate'].get('messages', [])
                     if messages:
                         last_message = messages[-1]
