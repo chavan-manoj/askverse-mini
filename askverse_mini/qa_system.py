@@ -360,14 +360,8 @@ class AskVerse:
             # Convert to Dataset format required by Ragas
             dataset = Dataset.from_dict(test_data)
             
-            # Configure OpenAI LLM
-            model_name = os.getenv("MODEL_NAME", "gpt-4o-mini")
-            logger.info(f"Using LLM model for RAGAS evaluation: {model_name}")
-            
-            llm = ChatOpenAI(
-                model_name=model_name,
-                temperature=0
-            )
+            # Use the existing LLM instance
+            logger.info(f"Using LLM model for RAGAS evaluation: {self.llm.model_name}")
             
             # Compute RAG metrics
             result = evaluate(
@@ -378,7 +372,7 @@ class AskVerse:
                     context_precision,
                     context_recall
                 ],
-                llm=llm
+                llm=self.llm
             )
             
             # Extract scores from the result
@@ -530,27 +524,35 @@ Quality Metrics: Error calculating metrics - {str(e)}
         retriever = self.document_processor.get_retriever(kind)
         
         # Get retrieved documents
-        docs = retriever.get_relevant_documents(question)
+        docs = retriever.invoke(question)
         context = " ".join([doc.page_content for doc in docs])
         
-        # Mock answer for evaluation (we just need to evaluate retrieval)
-        mock_answer = "This is a placeholder answer for retrieval evaluation only."
+        # Create a meaningful mock answer based on the retrieved context
+        mock_answer = f"Based on the retrieved documents, {context[:200]}..." if context else "No relevant information found in the documents."
         
         try:
             # Create eval dataset
-            data = {
+            test_data = {
                 "question": [question],
                 "answer": [mock_answer],
-                "contexts": [[context]]
+                "contexts": [[context]],
+                "reference": [mock_answer]  # Using mock_answer as reference since we don't have ground truth
             }
+            
+            # Convert to Dataset format required by Ragas
+            dataset = Dataset.from_dict(test_data)
+            
+            # Use the existing LLM instance
+            logger.info(f"Using LLM model for benchmark evaluation: {self.llm.model_name}")
             
             # Compute RAG metrics
             result = evaluate(
-                data,
+                dataset=dataset,
                 metrics=[
                     context_precision,
                     context_recall
-                ]
+                ],
+                llm=self.llm
             )
             
             # Extract scores from the result
