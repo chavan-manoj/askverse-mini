@@ -3,6 +3,7 @@ Document processing module for AskVerse
 """
 
 import os
+import json
 from typing import List, Dict, Any
 from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -37,6 +38,37 @@ class DocumentProcessor:
         self.ensemble_retriever = None
         self.document_metadata = {}  # Track metadata for each document
         
+    def _load_metadata(self, pdf_path: str) -> Dict[str, Any]:
+        """
+        Load metadata from JSON file
+        
+        Args:
+            pdf_path: Path to the PDF file
+            
+        Returns:
+            Dict containing document metadata
+        """
+        # Get the metadata file path
+        metadata_path = os.path.splitext(pdf_path)[0] + "_metadata.json"
+        
+        # Default metadata
+        metadata = {
+            "title": os.path.splitext(os.path.basename(pdf_path))[0].replace("-", " ").replace("_", " ").title()
+        }
+        
+        # Load metadata from JSON if exists
+        if os.path.exists(metadata_path):
+            try:
+                with open(metadata_path, 'r', encoding='utf-8') as f:
+                    json_metadata = json.load(f)
+                    metadata.update(json_metadata)
+            except json.JSONDecodeError as e:
+                print(f"Warning: Could not parse metadata file {metadata_path}: {e}")
+            except Exception as e:
+                print(f"Warning: Error loading metadata file {metadata_path}: {e}")
+                
+        return metadata
+        
     def load_pdf(self, pdf_path: str, doc_id: str = None) -> None:
         """
         Load and process a PDF file
@@ -52,6 +84,9 @@ class DocumentProcessor:
         if doc_id is None:
             doc_id = os.path.basename(pdf_path)
             
+        # Load metadata from JSON
+        metadata = self._load_metadata(pdf_path)
+            
         # Extract text from PDF
         pdf_reader = PdfReader(pdf_path)
         text = ""
@@ -64,28 +99,32 @@ class DocumentProcessor:
         # Create documents for both dense and sparse retrieval with metadata
         start_idx = len(self.dense_documents)
         for i, text in enumerate(splits):
-            metadata = {
+            # Combine JSON metadata with required fields
+            chunk_metadata = {
                 "id": str(start_idx + i),
                 "source": "dense",
                 "doc_id": doc_id,
-                "file_name": os.path.basename(pdf_path)
+                "file_name": os.path.basename(pdf_path),
+                **metadata  # Include all JSON metadata
             }
-            self.dense_documents.append(Document(page_content=text, metadata=metadata))
+            self.dense_documents.append(Document(page_content=text, metadata=chunk_metadata))
             
-            metadata = {
+            chunk_metadata = {
                 "id": str(start_idx + i),
                 "source": "sparse",
                 "doc_id": doc_id,
-                "file_name": os.path.basename(pdf_path)
+                "file_name": os.path.basename(pdf_path),
+                **metadata  # Include all JSON metadata
             }
-            self.sparse_documents.append(Document(page_content=text, metadata=metadata))
+            self.sparse_documents.append(Document(page_content=text, metadata=chunk_metadata))
             
         # Store document metadata
         self.document_metadata[doc_id] = {
             "file_path": pdf_path,
             "file_name": os.path.basename(pdf_path),
             "num_chunks": len(splits),
-            "total_pages": len(pdf_reader.pages)
+            "total_pages": len(pdf_reader.pages),
+            **metadata  # Include all JSON metadata
         }
         
     def setup_retrievers(self, collection_name: str = "askverse_docs") -> None:
