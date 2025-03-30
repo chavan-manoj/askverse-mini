@@ -16,6 +16,16 @@ from langchain_community.tools.tavily_search import TavilySearchResults
 from langgraph.graph import END, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
+# Import ragas for evaluation
+from ragas.metrics import (
+    faithfulness,
+    answer_relevancy,
+    context_precision,
+    context_recall
+)
+from ragas import evaluate
+from datasets import Dataset
+
 from .document_processor import DocumentProcessor
 
 # Set up logging
@@ -29,6 +39,8 @@ class AgentState(BaseModel):
     """State for the agent workflow"""
     messages: List[Any]
     metrics: Dict[str, float] = Field(default_factory=dict)
+    retrieved_docs: List[str] = Field(default_factory=list)
+    question: str = ""
 
 class AskVerse:
     """Main QA system implementing multi-agent architecture"""
@@ -58,6 +70,8 @@ class AskVerse:
         
         # Set up document retriever if provided
         if document_processor:
+            self.document_processor = document_processor  # Store for later use
+            self.retriever_kind = retriever_kind  # Store for direct access later
             retriever_tool = create_retriever_tool(
                 document_processor.get_retriever(retriever_kind),
                 "retrieve_document_answers",
@@ -80,6 +94,7 @@ class AskVerse:
         workflow.add_node("improve", self._improve_node)
         workflow.add_node("generate", self._generate_node)
         workflow.add_node("evaluate", self._evaluate_node)
+        workflow.add_node("evaluate_rag", self._evaluate_rag_node)
         
         # Set entry point
         workflow.set_entry_point("agent")
@@ -96,7 +111,8 @@ class AskVerse:
         
         workflow.add_conditional_edges("retrieve", self._score_documents)
         workflow.add_edge("generate", "evaluate")
-        workflow.add_edge("evaluate", END)
+        workflow.add_edge("evaluate", "evaluate_rag")
+        workflow.add_edge("evaluate_rag", END)
         workflow.add_edge("improve", "agent")
         
         # Compile the graph
@@ -123,6 +139,10 @@ class AskVerse:
         logger.info("Agent processing question...")
         response = llm.invoke(full_messages)
         logger.info(f"Agent response: {response}")
+        
+        # Save the initial question if this is the first message
+        if len(messages) == 1 and isinstance(messages[0], HumanMessage):
+            state.question = messages[0].content
         
         return {"messages": [response]}
         
@@ -152,6 +172,9 @@ class AskVerse:
         messages = state.messages
         question = messages[0].content
         docs = messages[-1].content
+        
+        # Store retrieved documents for RAG evaluation
+        state.retrieved_docs.append(docs)
         
         # Generation prompt
         generation_prompt = PromptTemplate.from_template(
@@ -309,20 +332,108 @@ class AskVerse:
             "average_score": avg_score
         }
         
-        # Format answer with metrics
-        formatted_answer = f"""
+        state.metrics.update(metrics)
+        
+        return {
+            "messages": messages,
+            "metrics": metrics
+        }
+    
+    def _evaluate_rag_node(self, state: AgentState) -> Dict[str, Any]:
+        """Node for evaluating RAG metrics using RAGAS"""
+        messages = state.messages
+        question = state.question if state.question else messages[0].content
+        answer = messages[-1].content if isinstance(messages[-1], AIMessage) else messages[-1].content
+        
+        # Get the retrieved context
+        context = " ".join(state.retrieved_docs) if state.retrieved_docs else ""
+        
+        try:
+            # Create test data in the format required by RAGAS
+            test_data = {
+                "question": [question],
+                "answer": [answer],
+                "contexts": [[context]],
+                "reference": [answer]  # Using answer as reference since we don't have ground truth
+            }
+            
+            # Convert to Dataset format required by Ragas
+            dataset = Dataset.from_dict(test_data)
+            
+            # Configure OpenAI LLM
+            model_name = os.getenv("MODEL_NAME", "gpt-4o-mini")
+            logger.info(f"Using LLM model for RAGAS evaluation: {model_name}")
+            
+            llm = ChatOpenAI(
+                model_name=model_name,
+                temperature=0
+            )
+            
+            # Compute RAG metrics
+            result = evaluate(
+                dataset=dataset,
+                metrics=[
+                    faithfulness,
+                    answer_relevancy,
+                    context_precision,
+                    context_recall
+                ],
+                llm=llm
+            )
+            
+            # Extract scores from the result
+            rag_metrics = {}
+            for metric_name in ["faithfulness", "answer_relevancy", "context_precision", "context_recall"]:
+                metric_scores = result[metric_name]
+                # Calculate average if it's a list of scores
+                if isinstance(metric_scores, list):
+                    rag_metrics[metric_name] = sum(metric_scores) / len(metric_scores)
+                else:
+                    rag_metrics[metric_name] = float(metric_scores)
+            
+            # Calculate average score
+            average_score = sum(rag_metrics.values()) / len(rag_metrics)
+            rag_metrics["average_score"] = average_score
+            
+            # Update state metrics
+            state.metrics.update(rag_metrics)
+            
+            # Format answer with all metrics
+            formatted_answer = f"""
 {answer}
 
 Quality Metrics:
-- Relevance: {evaluation.relevance:.2f}
-- Completeness: {evaluation.completeness:.2f}
-- Coherence: {evaluation.coherence:.2f}
-- Average Score: {avg_score:.2f}
+- Faithfulness: {rag_metrics.get('faithfulness', 0):.4f}
+- Answer Relevancy: {rag_metrics.get('answer_relevancy', 0):.4f}
+- Context Precision: {rag_metrics.get('context_precision', 0):.4f}
+- Context Recall: {rag_metrics.get('context_recall', 0):.4f}
+- Average Score: {rag_metrics.get('average_score', 0):.4f}
+"""
+            
+        except Exception as e:
+            logger.error(f"Error evaluating RAG metrics: {str(e)}")
+            rag_metrics = {
+                "faithfulness": 0.0,
+                "answer_relevancy": 0.0,
+                "context_precision": 0.0,
+                "context_recall": 0.0,
+                "average_score": 0.0,
+                "error": str(e)
+            }
+            
+            # Update state metrics
+            state.metrics.update(rag_metrics)
+            
+            # Format answer with error message
+            formatted_answer = f"""
+{answer}
+
+Quality Metrics: Error calculating metrics - {str(e)}
 """
         
         return {
             "messages": [AIMessage(content=formatted_answer)],
-            "metrics": metrics
+            "metrics": state.metrics
         }
         
     def ask(self, question: str) -> str:
@@ -342,7 +453,7 @@ Quality Metrics:
             raise ValueError("System not initialized. Call initialize() first.")
             
         # Create initial state
-        initial_state = AgentState(messages=[HumanMessage(content=question)])
+        initial_state = AgentState(messages=[HumanMessage(content=question)], question=question)
         
         # Run the graph
         final_answer = None
@@ -352,8 +463,18 @@ Quality Metrics:
             
             # Handle nested output structure
             if isinstance(output, dict):
-                # Check for 'evaluate' key first since it contains the final formatted answer
-                if 'evaluate' in output and isinstance(output['evaluate'], dict):
+                # Check for 'evaluate_rag' key first since it contains the final formatted answer
+                if 'evaluate_rag' in output and isinstance(output['evaluate_rag'], dict):
+                    messages = output['evaluate_rag'].get('messages', [])
+                    if messages:
+                        last_message = messages[-1]
+                        if isinstance(last_message, AIMessage):
+                            final_answer = last_message.content
+                            logger.info(f"Found evaluated answer with RAG metrics: {final_answer}")
+                            if 'metrics' in output['evaluate_rag']:
+                                metrics = output['evaluate_rag']['metrics']
+                # Check for 'evaluate' key
+                elif 'evaluate' in output and isinstance(output['evaluate'], dict):
                     messages = output['evaluate'].get('messages', [])
                     if messages:
                         last_message = messages[-1]
@@ -388,4 +509,63 @@ Quality Metrics:
         if final_answer is None:
             raise ValueError("No answer was generated. Please try rephrasing your question.")
             
-        return final_answer 
+        return final_answer
+        
+    def get_doc_metrics(self, question: str, retriever_kind: str = None) -> Dict[str, Any]:
+        """
+        Evaluate document retrieval metrics directly
+        
+        Args:
+            question: Question to evaluate retrieval for
+            retriever_kind: Optional override for retriever type
+            
+        Returns:
+            Dict containing retrieval metrics
+        """
+        if not hasattr(self, 'document_processor'):
+            raise ValueError("Document processor not initialized")
+            
+        # Use specified retriever or default
+        kind = retriever_kind or self.retriever_kind
+        retriever = self.document_processor.get_retriever(kind)
+        
+        # Get retrieved documents
+        docs = retriever.get_relevant_documents(question)
+        context = " ".join([doc.page_content for doc in docs])
+        
+        # Mock answer for evaluation (we just need to evaluate retrieval)
+        mock_answer = "This is a placeholder answer for retrieval evaluation only."
+        
+        try:
+            # Create eval dataset
+            data = {
+                "question": [question],
+                "answer": [mock_answer],
+                "contexts": [[context]]
+            }
+            
+            # Compute RAG metrics
+            result = evaluate(
+                data,
+                metrics=[
+                    context_precision,
+                    context_recall
+                ]
+            )
+            
+            # Extract scores from the result
+            metrics = {
+                "context_precision": float(result["context_precision"][0]),
+                "context_recall": float(result["context_recall"][0]),
+                "retriever_kind": kind,
+                "num_docs": len(docs)
+            }
+            
+            return metrics
+        except Exception as e:
+            logger.error(f"Error evaluating retrieval metrics: {str(e)}")
+            return {
+                "error": str(e),
+                "retriever_kind": kind,
+                "num_docs": len(docs) if 'docs' in locals() else 0
+            }

@@ -4,6 +4,7 @@ Entry point for AskVerse Mini
 
 import os
 import time
+import json
 from dotenv import load_dotenv
 from askverse_mini.document_processor import DocumentProcessor
 from askverse_mini.qa_system import AskVerse
@@ -31,18 +32,23 @@ def main():
     for doc_id, info in doc_info['documents'].items():
         print(f"\nLoaded document: {doc_id} with {info['num_chunks']} chunks and {info['total_pages']} pages.")
     
-    # Initialize QA system
-    # qa_system = AskVerse()
-    # qa_system.initialize(processor)
+    # Initialize QA systems with different retriever strategies
+    qa_systems = {
+        "dense_only": AskVerse(),
+        "sparse_only": AskVerse(),
+        "ensemble": AskVerse()
+    }
+    
+    qa_systems["dense_only"].initialize(processor, use_web_search=False, retriever_kind="dense")
+    qa_systems["sparse_only"].initialize(processor, use_web_search=False, retriever_kind="sparse")
+    qa_systems["ensemble"].initialize(processor, use_web_search=False, retriever_kind="ensemble")
+    
+    current_system = "dense_only"  # Default system
 
-    # qa_system_wo_web = AskVerse()
-    # qa_system_wo_web.initialize(processor, use_web_search=False)
-
-    qa_system_wo_web_dense = AskVerse()
-    qa_system_wo_web_dense.initialize(processor, use_web_search=False, retriever_kind="dense")
-
-    print("\nAskVerse Mini is ready! Ask questions like ""What is Google's environment policy?"", ""How is Google helping people make more sustainable choices through its products?""")
+    print("\nAskVerse Mini is ready! Ask questions like \"What is Google's environment policy?\", \"How is Google helping people make more sustainable choices through its products?\"")
     print("\nType 'quit' at anytime to exit.")
+    print("Type 'benchmark' to compare retrieval metrics across different retrievers.")
+    print("Type 'use dense', 'use sparse', or 'use ensemble' to switch between retrieval strategies.")
     print("-" * 80)
     
     while True:
@@ -54,42 +60,68 @@ def main():
             print("\nThank you for using AskVerse Mini!")
             break
             
+        # Check for benchmark command
+        if question.lower() == "benchmark":
+            benchmark_question = input("\nEnter a question to benchmark: ").strip()
+            if benchmark_question:
+                print("\nRunning benchmark across different retrievers...")
+                results = {}
+                
+                # Get metrics for each retriever type
+                for system_name, qa_system in qa_systems.items():
+                    print(f"Testing {system_name}...")
+                    try:
+                        metrics = qa_system.get_doc_metrics(benchmark_question)
+                        results[system_name] = metrics
+                    except Exception as e:
+                        print(f"Error benchmarking {system_name}: {str(e)}")
+                
+                # Display results
+                print("\nBenchmark Results:")
+                print("-" * 80)
+                print(f"{'Retriever':<15} {'Precision':<12} {'Recall':<12} {'Relevancy':<12}")
+                print("-" * 80)
+                
+                for system_name, metrics in results.items():
+                    precision = metrics.get('context_precision', 0)
+                    recall = metrics.get('context_recall', 0)
+                    print(f"{system_name:<15} {precision:<12.4f} {recall:<12.4f}")
+                
+                print("-" * 80)
+                continue
+        
+        # Check for system switch commands
+        if question.lower() == "use dense":
+            current_system = "dense_only"
+            print("\nSwitched to dense retriever only")
+            continue
+        elif question.lower() == "use sparse":
+            current_system = "sparse_only"
+            print("\nSwitched to sparse retriever only")
+            continue
+        elif question.lower() == "use ensemble":
+            current_system = "ensemble"
+            print("\nSwitched to ensemble retriever (dense + sparse)")
+            continue
+            
         # Skip empty questions
         if not question:
             continue
             
         try:
-            # Get answer
+            # Get answer from current system
             start_time = time.time()
-            answer_wo_web_dense = qa_system_wo_web_dense.ask(question)
+            answer = qa_systems[current_system].ask(question)
             
             # Print answer
-            print(f"\nAnswer (without web search and dense retriever only) (time taken: {round(time.time() - start_time, 2)} seconds):")
+            print(f"\nAnswer (using {current_system}) (time taken: {round(time.time() - start_time, 2)} seconds):")
             print("-" * 80)
-            print(answer_wo_web_dense)
+            print(answer)
             print("-" * 80)
-
-            # start_time = time.time()
-            # answer_wo_web = qa_system_wo_web.ask(question)
-            
-            # # Print answer
-            # print(f"\nAnswer (without web search and dense & sparse retrievers) (time taken: {round(time.time() - start_time, 2)} seconds):")
-            # print("-" * 80)
-            # print(answer_wo_web)
-            # print("-" * 80)
-
-            # start_time = time.time()
-            # answer = qa_system.ask(question)
-            
-            # # Print answer
-            # print(f"\nAnswer (with web search) (time taken: {round(time.time() - start_time, 2)} seconds):")
-            # print("-" * 80)
-            # print(answer)
-            # print("-" * 80)
             
         except Exception as e:
             print(f"\nError: {str(e)}")
             print("Please try rephrasing your question or ask a different one.")
 
 if __name__ == "__main__":
-    main() 
+    main()
