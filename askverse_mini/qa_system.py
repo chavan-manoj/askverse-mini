@@ -21,12 +21,13 @@ from ragas.metrics import (
     faithfulness,
     answer_relevancy,
     context_precision,
-    context_recall
+    context_recall,
+    context_entity_recall
 )
 from ragas import evaluate
 from datasets import Dataset
 
-from .document_processor import DocumentProcessor
+from askverse_mini.document_processor import DocumentProcessor
 
 # Set up logging
 logging.basicConfig(level=logging.ERROR)
@@ -54,7 +55,7 @@ class AskVerse:
         self.tools = []
         self.graph = None
         
-    def initialize(self, document_processor: DocumentProcessor = None, use_web_search: bool = True, retriever_kind: str = "ensemble"):
+    def initialize(self, document_processor: DocumentProcessor = None, use_web_search: bool = True, retriever_kind: str = "ensemble", production_mode: bool = True):
         """
         Initialize the system with document processor and tools
         
@@ -80,8 +81,41 @@ class AskVerse:
             self.tools.append(retriever_tool)
             
         # Set up the workflow graph
-        self._setup_workflow()
+        if production_mode:
+            self._setup_production_workflow()
+        else:
+            self._setup_workflow()
         
+    def _setup_production_workflow(self):
+        """Set up the multi-agent productionworkflow graph"""
+        # Define the graph
+        workflow = StateGraph(AgentState)
+        
+        # Add nodes
+        workflow.add_node("agent", self._agent_node)
+        retrieve = ToolNode(self.tools)
+        workflow.add_node("retrieve", retrieve)
+        workflow.add_node("generate", self._generate_node)
+        
+        # Set entry point
+        workflow.set_entry_point("agent")
+        
+        # Add edges
+        workflow.add_conditional_edges(
+            "agent",
+            tools_condition,
+            {
+                "tools": "retrieve",
+                END: END,
+            }
+        )
+        
+        workflow.add_edge("retrieve", "generate")
+        workflow.add_edge("generate", END)
+        
+        # Compile the graph
+        self.graph = workflow.compile()
+    
     def _setup_workflow(self):
         """Set up the multi-agent workflow graph"""
         # Define the graph
@@ -205,7 +239,7 @@ class AskVerse:
         
         # Create AIMessage with the response
         ai_message = AIMessage(content=response)
-        return {"messages": [ai_message]}
+        return {"messages": [ai_message], "retrieved_docs": docs}
         
     def _score_documents(self, state: AgentState) -> Literal["generate", "improve"]:
         """Score retrieved documents for relevance"""
@@ -370,14 +404,15 @@ class AskVerse:
                     faithfulness,
                     answer_relevancy,
                     context_precision,
-                    context_recall
+                    context_recall,
+                    context_entity_recall
                 ],
                 llm=self.llm
             )
             
             # Extract scores from the result
             rag_metrics = {}
-            for metric_name in ["faithfulness", "answer_relevancy", "context_precision", "context_recall"]:
+            for metric_name in ["faithfulness", "answer_relevancy", "context_precision", "context_recall", "context_entity_recall"]:
                 metric_scores = result[metric_name]
                 # Calculate average if it's a list of scores
                 if isinstance(metric_scores, list):
@@ -401,6 +436,7 @@ Quality Metrics:
 - Answer Relevancy: {rag_metrics.get('answer_relevancy', 0):.4f}
 - Context Precision: {rag_metrics.get('context_precision', 0):.4f}
 - Context Recall: {rag_metrics.get('context_recall', 0):.4f}
+- Context Entity Recall: {rag_metrics.get('context_entity_recall', 0):.4f}
 - Average Score: {rag_metrics.get('average_score', 0):.4f}
 """
             
@@ -411,6 +447,7 @@ Quality Metrics:
                 "answer_relevancy": 0.0,
                 "context_precision": 0.0,
                 "context_recall": 0.0,
+                "context_entity_recall": 0.0,
                 "average_score": 0.0,
                 "error": str(e)
             }
@@ -549,16 +586,22 @@ Quality Metrics: Error calculating metrics - {str(e)}
             result = evaluate(
                 dataset=dataset,
                 metrics=[
+                    faithfulness,
+                    answer_relevancy,
                     context_precision,
-                    context_recall
+                    context_recall,
+                    context_entity_recall
                 ],
                 llm=self.llm
             )
             
             # Extract scores from the result
             metrics = {
+                "faithfulness": float(result["faithfulness"][0]),
+                "answer_relevancy": float(result["answer_relevancy"][0]),
                 "context_precision": float(result["context_precision"][0]),
                 "context_recall": float(result["context_recall"][0]),
+                "context_entity_recall": float(result["context_entity_recall"][0]),
                 "retriever_kind": kind,
                 "num_docs": len(docs)
             }

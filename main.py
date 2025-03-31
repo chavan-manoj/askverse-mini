@@ -36,19 +36,22 @@ def main():
     qa_systems = {
         "dense_only": AskVerse(),
         "sparse_only": AskVerse(),
-        "ensemble": AskVerse()
+        "ensemble": AskVerse(),
+        "web_ensemble": AskVerse()
     }
     
     qa_systems["dense_only"].initialize(processor, use_web_search=False, retriever_kind="dense")
     qa_systems["sparse_only"].initialize(processor, use_web_search=False, retriever_kind="sparse")
     qa_systems["ensemble"].initialize(processor, use_web_search=False, retriever_kind="ensemble")
+    qa_systems["web_ensemble"].initialize(processor, use_web_search=True, retriever_kind="ensemble")
     
+
     current_system = "dense_only"  # Default system
 
     print("\nAskVerse Mini is ready! Ask questions like \"What is Google's environment policy?\", \"How is Google helping people make more sustainable choices through its products?\"")
     print("\nType 'quit' at anytime to exit.")
     print("Type 'benchmark' to compare retrieval metrics across different retrievers.")
-    print("Type 'use dense', 'use sparse', or 'use ensemble' to switch between retrieval strategies.")
+    print("Type 'use dense', 'use sparse', or 'use ensemble' or 'use web ensemble' to switch between retrieval strategies.")
     print("-" * 80)
     
     while True:
@@ -79,13 +82,16 @@ def main():
                 # Display results
                 print("\nBenchmark Results:")
                 print("-" * 80)
-                print(f"{'Retriever':<15} {'Precision':<12} {'Recall':<12} {'Relevancy':<12}")
+                print(f"{'Retriever':<15} {'Faithfulness':<12} {'Answer Relevancy':<12} {'Precision':<12} {'Recall':<12} {'Entity Recall':<12}")
                 print("-" * 80)
                 
                 for system_name, metrics in results.items():
+                    faithfulness = metrics.get('faithfulness', 0)
+                    answer_relevancy = metrics.get('answer_relevancy', 0)
                     precision = metrics.get('context_precision', 0)
                     recall = metrics.get('context_recall', 0)
-                    print(f"{system_name:<15} {precision:<12.4f} {recall:<12.4f}")
+                    entity_recall = metrics.get('context_entity_recall', 0)
+                    print(f"{system_name:<15} {faithfulness:<12.4f} {answer_relevancy:<12.4f} {precision:<12.4f} {recall:<12.4f} {entity_recall:<12.4f}")
                 
                 print("-" * 80)
                 continue
@@ -103,7 +109,11 @@ def main():
             current_system = "ensemble"
             print("\nSwitched to ensemble retriever (dense + sparse)")
             continue
-            
+        elif question.lower() == "use web ensemble":
+            current_system = "web_ensemble"
+            print("\nSwitched to web ensemble retriever (dense + sparse + web search)")
+            continue
+
         # Skip empty questions
         if not question:
             continue
