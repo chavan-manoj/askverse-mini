@@ -9,7 +9,8 @@ from ragas.metrics import (
     faithfulness,
     answer_relevancy,
     context_precision,
-    context_recall
+    context_recall,
+    context_entity_recall,
 )
 from ragas import evaluate
 from langchain_openai import ChatOpenAI
@@ -90,39 +91,17 @@ def main():
             faithfulness,
             answer_relevancy,
             context_precision,
-            context_recall
+            context_recall,
+            context_entity_recall
         ],
         llm=llm
     )
     
-    # Extract scores from the result
-    scores = {}
-    for metric_name in ["faithfulness", "answer_relevancy", "context_precision", "context_recall"]:
-        metric_scores = result[metric_name]
-        # Calculate average if it's a list of scores
-        if isinstance(metric_scores, list):
-            scores[metric_name] = sum(metric_scores) / len(metric_scores)
-        else:
-            scores[metric_name] = float(metric_scores)
-    
-    # Calculate average score
-    average_score = sum(scores.values()) / len(scores)
-    
-    # Print results
-    print("\nEvaluation Results:")
-    print("-" * 50)
-    for metric, score in scores.items():
-        print(f"{metric}: {score:.4f}")
-    print("-" * 50)
-    print(f"Average Score: {average_score:.4f}")
-    
-    # Save results to CSV
-    results_df = pd.DataFrame({
-        "Metric": list(scores.keys()) + ["average"],
-        "Score": list(scores.values()) + [average_score]
-    })
-    results_df.to_csv("ragas_evaluation_results.csv", index=False)
-    print("\nResults saved to ragas_evaluation_results.csv")
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.max_colwidth', 30)
+    df = result.to_pandas()
+    print(df.to_string())
+    df.to_csv("tests/ragas_evaluation_results.csv", index=False)
 
 if __name__ == "__main__":
     main()
