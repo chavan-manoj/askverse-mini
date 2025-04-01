@@ -4,7 +4,6 @@ Entry point for AskVerse Mini
 
 import os
 import time
-import json
 from dotenv import load_dotenv
 from askverse_mini.document_processor import DocumentProcessor
 from askverse_mini.qa_system import AskVerse
@@ -19,7 +18,7 @@ def main():
     # Load multiple PDF documents
     pdf_dir = "pdfs"  # Directory containing PDF files
     for pdf_file in os.listdir(pdf_dir):
-        if pdf_file.endswith(".pdf") and pdf_file.startswith("google"):
+        if pdf_file.endswith(".pdf"):
             pdf_path = os.path.join(pdf_dir, pdf_file)
             print(f"Loading PDF: {pdf_file}")
             processor.load_pdf(pdf_path)
@@ -50,7 +49,6 @@ def main():
 
     print("\nAskVerse Mini is ready! Ask questions like \"What is Google's environment policy?\", \"How is Google helping people make more sustainable choices through its products?\"")
     print("\nType 'quit' at anytime to exit.")
-    print("Type 'benchmark' to compare retrieval metrics across different retrievers.")
     print("Type 'use dense', 'use sparse', or 'use ensemble' or 'use web ensemble' to switch between retrieval strategies.")
     print("-" * 80)
     
@@ -63,39 +61,6 @@ def main():
             print("\nThank you for using AskVerse Mini!")
             break
             
-        # Check for benchmark command
-        if question.lower() == "benchmark":
-            benchmark_question = input("\nEnter a question to benchmark: ").strip()
-            if benchmark_question:
-                print("\nRunning benchmark across different retrievers...")
-                results = {}
-                
-                # Get metrics for each retriever type
-                for system_name, qa_system in qa_systems.items():
-                    print(f"Testing {system_name}...")
-                    try:
-                        metrics = qa_system.get_doc_metrics(benchmark_question)
-                        results[system_name] = metrics
-                    except Exception as e:
-                        print(f"Error benchmarking {system_name}: {str(e)}")
-                
-                # Display results
-                print("\nBenchmark Results:")
-                print("-" * 80)
-                print(f"{'Retriever':<15} {'Faithfulness':<12} {'Answer Relevancy':<12} {'Precision':<12} {'Recall':<12} {'Entity Recall':<12}")
-                print("-" * 80)
-                
-                for system_name, metrics in results.items():
-                    faithfulness = metrics.get('faithfulness', 0)
-                    answer_relevancy = metrics.get('answer_relevancy', 0)
-                    precision = metrics.get('context_precision', 0)
-                    recall = metrics.get('context_recall', 0)
-                    entity_recall = metrics.get('context_entity_recall', 0)
-                    print(f"{system_name:<15} {faithfulness:<12.4f} {answer_relevancy:<12.4f} {precision:<12.4f} {recall:<12.4f} {entity_recall:<12.4f}")
-                
-                print("-" * 80)
-                continue
-        
         # Check for system switch commands
         if question.lower() == "use dense":
             current_system = "dense_only"
@@ -121,14 +86,14 @@ def main():
         try:
             # Get answer from current system
             start_time = time.time()
-            answer = qa_systems[current_system].ask(question)
+            answer = qa_systems[current_system].ask_with_metrics(question)
             
             # Print answer
             print(f"\nAnswer (using {current_system}) (time taken: {round(time.time() - start_time, 2)} seconds):")
             print("-" * 80)
-            print(answer)
+            print(answer["content"])
             print("-" * 80)
-            
+
         except Exception as e:
             print(f"\nError: {str(e)}")
             print("Please try rephrasing your question or ask a different one.")

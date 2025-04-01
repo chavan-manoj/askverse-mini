@@ -541,76 +541,45 @@ Quality Metrics: Error calculating metrics - {str(e)}
             raise ValueError("No answer was generated. Please try rephrasing your question.")
             
         return final_answer
-        
-    def get_doc_metrics(self, question: str, retriever_kind: str = None) -> Dict[str, Any]:
+
+    def ask_with_metrics(self, question: str) -> Dict[str, Any]:
         """
-        Evaluate document retrieval metrics directly
+        Ask a question and get an answer
         
         Args:
-            question: Question to evaluate retrieval for
-            retriever_kind: Optional override for retriever type
+            question: The question to ask
             
         Returns:
-            Dict containing retrieval metrics
+            str: The generated answer with quality metrics
+            
+        Raises:
+            ValueError: If the system is not initialized or if no answer is generated
         """
-        if not hasattr(self, 'document_processor'):
-            raise ValueError("Document processor not initialized")
+        if not self.graph:
+            raise ValueError("System not initialized. Call initialize() first.")
             
-        # Use specified retriever or default
-        kind = retriever_kind or self.retriever_kind
-        retriever = self.document_processor.get_retriever(kind)
+        # Create initial state
+        initial_state = AgentState(messages=[HumanMessage(content=question)], question=question)
         
-        # Get retrieved documents
-        docs = retriever.invoke(question)
-        context = " ".join([doc.page_content for doc in docs])
-        
-        # Create a meaningful mock answer based on the retrieved context
-        mock_answer = f"Based on the retrieved documents, {context[:200]}..." if context else "No relevant information found in the documents."
-        
-        try:
-            # Create eval dataset
-            test_data = {
-                "question": [question],
-                "answer": [mock_answer],
-                "contexts": [[context]],
-                "reference": [mock_answer]  # Using mock_answer as reference since we don't have ground truth
-            }
+        # Run the graph
+        final_answer = None
+        for output in self.graph.stream(initial_state):
+            logger.info(f"Processing output: {output}")
             
-            # Convert to Dataset format required by Ragas
-            dataset = Dataset.from_dict(test_data)
+            # Handle nested output structure
+            if isinstance(output, dict):
+                # Check for 'evaluate_rag' key first since it contains the final formatted answer
+                if 'generate' in output and isinstance(output['generate'], dict):
+                    messages = output['generate'].get('messages', [])
+                    retrieved_docs = output['generate'].get('retrieved_docs', "")
+                    if messages:
+                        last_message = messages[-1]
+                        if isinstance(last_message, AIMessage):
+                            final_answer = {"content": last_message.content, "retrieved_docs": retrieved_docs}
+                            logger.info(f"Found answer: {final_answer}")
+
+        if final_answer is None:
+            raise ValueError("No answer was generated. Please try rephrasing your question.")
             
-            # Use the existing LLM instance
-            logger.info(f"Using LLM model for benchmark evaluation: {self.llm.model_name}")
+        return final_answer
             
-            # Compute RAG metrics
-            result = evaluate(
-                dataset=dataset,
-                metrics=[
-                    faithfulness,
-                    answer_relevancy,
-                    context_precision,
-                    context_recall,
-                    context_entity_recall
-                ],
-                llm=self.llm
-            )
-            
-            # Extract scores from the result
-            metrics = {
-                "faithfulness": float(result["faithfulness"][0]),
-                "answer_relevancy": float(result["answer_relevancy"][0]),
-                "context_precision": float(result["context_precision"][0]),
-                "context_recall": float(result["context_recall"][0]),
-                "context_entity_recall": float(result["context_entity_recall"][0]),
-                "retriever_kind": kind,
-                "num_docs": len(docs)
-            }
-            
-            return metrics
-        except Exception as e:
-            logger.error(f"Error evaluating retrieval metrics: {str(e)}")
-            return {
-                "error": str(e),
-                "retriever_kind": kind,
-                "num_docs": len(docs) if 'docs' in locals() else 0
-            }
