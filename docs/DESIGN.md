@@ -1,243 +1,114 @@
-# AskVerse Mini - System Design Document
+# AskVerse: Design & Architecture
 
-## Overview
+## 1. Introduction
 
-AskVerse Mini is a sophisticated multi-agent AI system that combines document question answering with web search capabilities. The system uses a hybrid approach to provide comprehensive answers by leveraging both local document knowledge and real-time web search results.
+AskVerse is a **Secure, Scalable, and Real-time Knowledge Management System** leveraging a **Multi-Agentic Retrieval-Augmented Generation (RAG) Pipeline**. The system consists of multiple retrievers, real-time API orchestration, document scoring, uncertainty quantification, and access control mechanisms.
 
-## System Architecture
+This document describes the **architecture and design** of the system, including:
+- The **RAG pipeline workflow**
+- **Publishing OpenAPI specs to VectorDB**
+- **Publishing enterprise documents to VectorDB**
 
-```mermaid
-graph TB
-    subgraph Input Layer
-        PDF[PDF Documents]
-        Q[User Questions]
-    end
+---
 
-    subgraph Document Processing
-        DP[Document Processor]
-        CR[Chunking & Retrieval]
-    end
-
-    subgraph Search Layer
-        WS[Web Search Engine]
-        SR[Search Results]
-    end
-
-    subgraph Agent Layer
-        RA[Research Agent]
-        QA[QA Agent]
-        SA[Synthesis Agent]
-    end
-
-    subgraph Output Layer
-        A[Final Answer]
-    end
-
-    PDF --> DP
-    DP --> CR
-    Q --> RA
-    RA --> WS
-    WS --> SR
-    CR --> QA
-    SR --> QA
-    QA --> SA
-    SA --> A
-```
-
-## Component Details
-
-### 1. Document Processing Layer
-
-The document processing layer handles the ingestion and preparation of PDF documents:
-
-```mermaid
-graph LR
-    subgraph Document Processing
-        PDF[PDF Input] --> EX[Text Extraction]
-        EX --> CH[Chunking]
-        CH --> DR[Dense Retrieval]
-        CH --> SR[Sparse Retrieval]
-        DR --> ER[Ensemble Retriever]
-        SR --> ER
-    end
-```
-
-- **Text Extraction**: Converts PDF documents into plain text while preserving structure
-- **Chunking**: Splits text into manageable chunks with overlap for context preservation
-- **Hybrid Retrieval**:
-  - Dense Retrieval: Uses OpenAI embeddings for semantic search
-  - Sparse Retrieval: Uses BM25 for keyword-based search
-  - Ensemble: Combines both approaches for better results
-
-### 2. Agent Workflow
-
-The system employs a multi-agent architecture with specialized agents:
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Research Agent
-    participant QA Agent
-    participant Synthesis Agent
-    participant Web Search
-    participant Document Store
-
-    User->>Research Agent: Submit Question
-    Research Agent->>Web Search: Search for relevant info
-    Web Search-->>Research Agent: Return search results
-    Research Agent->>QA Agent: Process with context
-    QA Agent->>Document Store: Query relevant chunks
-    Document Store-->>QA Agent: Return document context
-    QA Agent->>Synthesis Agent: Combine information
-    Synthesis Agent->>User: Return final answer
-```
-
-#### Agent Roles
-
-1. **Research Agent**
-   - Handles web search queries
-   - Filters and processes search results
-   - Identifies relevant information gaps
-
-2. **QA Agent**
-   - Processes document chunks
-   - Extracts relevant information
-   - Combines document context with search results
-
-3. **Synthesis Agent**
-   - Merges information from multiple sources
-   - Ensures consistency and coherence
-   - Generates final comprehensive answer
-
-### 3. Information Flow
+## 2. RAG Workflow (Multi-Agentic RAG Pipeline)
 
 ```mermaid
 graph TD
-    subgraph Input
-        Q[Question]
-        D[Documents]
-        W[Web Search]
-    end
-
-    subgraph Processing
-        RC[Research Context]
-        DC[Document Context]
-        IC[Information Combination]
-    end
-
-    subgraph Output
-        A[Answer]
-    end
-
-    Q --> RC
-    W --> RC
-    D --> DC
-    RC --> IC
-    DC --> IC
-    IC --> A
+    %% User Input and Initial Processing
+    UserQuery[User Query] -->|LLM Identifies Subqueries| QueryBreaker[Query Breakdown Module]
+    
+    %% Subqueries to Different Retrievers
+    QueryBreaker -->|Dense Search| DenseRetriever[Dense Retriever Vector DB]
+    QueryBreaker -->|Sparse Search| SparseRetriever[Sparse Retriever BM25]
+    QueryBreaker -->|Ensemble Search| EnsembleRetriever[Ensemble Retriever]
+    QueryBreaker -->|Real-time Web Search| WebRetriever[Real-time Web Search]
+    QueryBreaker -->|API Calls| APILookup[API Lookup Vector DB with OpenAPI Specs]
+    
+    %% API Selection Process
+    APILookup -->|Find Suitable APIs| LLM[LLM API Selector]
+    LLM -->|Call API 1| API1[API Call 1]
+    API1 -->|Data Response| APIRetriever[API Data Retriever]
+    LLM -->|Call API 2 | API2[API Call 2]
+    API2 -->|Additional Data| APIRetriever
+    
+    %% Combining Retrieved Information
+    DenseRetriever -->|Docs + Citation| Scorer[Document Scorer]
+    SparseRetriever -->|Docs + Citation| Scorer
+    EnsembleRetriever -->|Docs + Citation| Scorer
+    WebRetriever -->|Docs + Citation| Scorer
+    APIRetriever -->|API Data + Citation| Scorer
+    
+    %% Document Scoring & Query Refinement
+    Scorer -->|Score < Threshold?| ReThink[Rephrase & Retry Thinking Mode]
+    ReThink -->|Re-execute Query| QueryBreaker
+    Scorer -->|Score ≥ Threshold| ResponseProcessor[Response Processing]
+    
+    %% Final Processing (Citations, Confidence, Masking)
+    ResponseProcessor -->|Compute Confidence Score| Confidence[Confidence Score Calculation]
+    ResponseProcessor -->|Mask Sensitive Data| DataMasking[PII & Sensitive Data Handling]
+    
+    %% Final Response
+    Confidence --> FinalResponse[Final Answer with Citations & Confidence Score]
+    DataMasking --> FinalResponse
+    FinalResponse --> User[User Receives Answer]
 ```
 
-## Response Enhancement Process
+### **Description:**
+- **Query Breakdown:** LLM decomposes complex queries into subqueries.
+- **Multi-Retriever System:** Uses Dense, Sparse, Ensemble retrievers, and Web Search.
+- **API Orchestration:** Finds and invokes APIs dynamically based on OpenAPI specs stored in Vector DB.
+- **Document Scoring & Re-execution:** If results are poor, the system retries with rephrased queries.
+- **Final Processing:** Adds citations, computes confidence scores, and masks sensitive data.
 
-1. **Initial Question Processing**
-   - Question is analyzed for required information types
-   - System determines if web search is needed
+---
 
-2. **Parallel Information Gathering**
-   - Document retrieval from local PDFs
-   - Web search for current/relevant information
-   - Both processes run concurrently for efficiency
-
-3. **Information Integration**
-   - Document context provides foundational knowledge
-   - Web search results add current/relevant information
-   - System identifies and resolves any contradictions
-
-4. **Response Generation**
-   - Information is synthesized into coherent answer
-   - Sources are properly attributed
-   - Response is formatted for clarity
-
-## Error Handling and Fallbacks
+## 3. OpenAPI Specification Publisher
 
 ```mermaid
 graph TD
-    A[Start] --> B{Web Search Available?}
-    B -->|Yes| C[Use Web Search]
-    B -->|No| D[Document Only Mode]
-    C --> E{Search Successful?}
-    E -->|Yes| F[Combine Results]
-    E -->|No| D
-    D --> G[Generate Answer]
-    F --> G
+    OpenAPI_Specs[OpenAPI Spec Documents] -->|Parse API Definitions| SpecProcessor[OpenAPI Spec Processor]
+    SpecProcessor -->|Generate Embeddings| EmbeddingModel[OpenAI Embeddings]
+    EmbeddingModel -->|Store API Vectors| VectorDB[Vector Database]
 ```
 
-## Performance Considerations
+### **Description:**
+- **Processes OpenAPI Specifications** to extract API definitions.
+- **Generates vector embeddings** for each API.
+- **Stores API vectors in VectorDB**, enabling dynamic API selection in the RAG pipeline.
 
-1. **Caching**
-   - Document embeddings are cached
-   - Frequently accessed chunks are stored in memory
-   - Search results are cached temporarily
+---
 
-2. **Parallel Processing**
-   - Document processing runs in parallel
-   - Web search and document retrieval are concurrent
-   - Agent operations are optimized for speed
-
-3. **Resource Management**
-   - Memory usage is monitored
-   - Large documents are processed in chunks
-   - Search results are limited to relevant content
-
-## Future Enhancements
-
-1. **Planned Improvements**
-   - Support for more document types
-   - Enhanced caching mechanisms
-   - Improved search result filtering
-   - Better source attribution
-
-2. **Potential Features**
-   - Multi-language support
-   - Custom agent configurations
-   - Advanced visualization options
-   - API endpoint for integration
-
-## Security Considerations
-
-1. **API Key Management**
-   - Secure storage of API keys
-   - Environment variable usage
-   - No hardcoded credentials
-
-2. **Data Privacy**
-   - Local document processing
-   - Secure API communications
-   - No data storage of sensitive information
-
-## Monitoring and Logging
+## 4. Document Ingestion & Publishing to VectorDB
 
 ```mermaid
-graph LR
-    subgraph Monitoring
-        P[Performance Metrics]
-        E[Error Logs]
-        U[Usage Statistics]
-    end
-
-    subgraph Logging
-        L[Log Files]
-        A[Analytics]
-        D[Debug Info]
-    end
-
-    P --> L
-    E --> L
-    U --> L
-    L --> A
-    L --> D
+graph TD
+    Confluence[Confluence Docs] -->|Fetch Content| ConfluenceListener[Confluence Listener]
+    Websites[Enterprise Websites] -->|Scrape Content| WebScraper[Web Scraper]
+    PDFs[PDF Documents] -->|Parse PDFs| PDFProcessor[PDF Parser]
+    
+    ConfluenceListener -->|Extract Text| TextProcessor[Text Processing Module]
+    WebScraper -->|Extract Text| TextProcessor
+    PDFProcessor -->|Extract Text| TextProcessor
+    
+    TextProcessor -->|Generate Embeddings| DocEmbeddingModel[OpenAI Embeddings]
+    DocEmbeddingModel -->|Store in VectorDB| VectorDB_Docs[Vector Database Documents]
 ```
 
-## Conclusion
+### **Description:**
+- **Confluence Listener, Web Scraper, PDF Processor** extract data from various sources.
+- **Text Processing Module** cleans and standardizes extracted content.
+- **Embeddings are generated** using OpenAI models.
+- **Processed documents are stored in VectorDB**, enabling retrieval in the RAG pipeline.
 
-AskVerse Mini's architecture combines the power of local document processing with real-time web search capabilities through a sophisticated multi-agent system. The design ensures efficient information processing, reliable response generation, and scalable operation while maintaining security and performance standards. 
+---
+
+## 5. Conclusion
+
+This design ensures:
+- ✅ **Scalability** through multi-agent retrieval and API orchestration.
+- ✅ **Security & Compliance** via access control and PII masking.
+- ✅ **Accuracy & Transparency** by incorporating document scoring, citations, and confidence scores.
+- ✅ **Real-time Adaptability** via OpenAPI-driven API selection and real-time web search.
+
+This architecture supports a **highly extensible, plug-and-play knowledge management system** for enterprises.
