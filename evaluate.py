@@ -1,5 +1,24 @@
 """
-Test script for RAGAS evaluation metrics
+Evaluate the RAG systems using RAGAS evaluation framework.
+
+Usage:
+python evaluate.py
+
+Here are the metrics used for evaluation of Retriever component of RAG:
+- Context Precision: Measures the proportion of relevant chunks in the retrieved contexts.
+    This metric is computed using the question and the contexts.
+- Context Recall: How many of the relevant documents (or pieces of information) were successfully retrieved.
+    It focuses on not missing important results. Calculating context recall always requires a reference to compare against.
+    This metric is computed using the reference answer (ground truth) and the contexts.
+- Context Entity Recall: Measure of what fraction of entities are recalled from reference.
+    This metric is computed using the entities in the reference answer (ground truth) and the contexts.
+
+Here are the metrics used for evaluation of Generator component of RAG:
+- Faithfulness: Measures how factually consistent a response is with the retrieved context.
+    This metric uses the question, retrieved contexts and the generated answer.
+- Answer Relevancy: Measures the relevance of the answer to the question.
+    This metric uses the question and the generated answer.
+
 """
 
 import os
@@ -56,7 +75,8 @@ def generate_test_data(test_dataset_path):
     qa_systems["ensemble"].initialize(processor, use_web_search=False, retriever_kind="ensemble")
     qa_systems["web_ensemble"].initialize(processor, use_web_search=True, retriever_kind="ensemble")
     
-    current_system = "dense_only" 
+    # Choose the retriever kind to evaluate
+    current_system = "dense_only" # "sparse_only", "ensemble", "web_ensemble"
 
     print("Asking questions to AskVerse...")
     for question in tqdm(questions):
@@ -74,7 +94,7 @@ def generate_test_data(test_dataset_path):
     return test_data, df
 
 def main():
-    """Main function to run RAGAS evaluation"""
+    """Main function to evaluate the RAG systems using RAGAS evaluation framework"""
     test_data, test_dataset_df = generate_test_data("tests/ragas_test_dataset.xlsx")
     
     # Convert to Dataset format required by Ragas
@@ -102,12 +122,13 @@ def main():
         llm=llm
     )
     
-    pd.set_option('display.max_columns', None)
-    pd.set_option('display.max_colwidth', 30)
     df = result.to_pandas()
     df["Question Category"] = test_dataset_df["Question Category"]
-    print(df.to_string())
-    df.to_excel("tests/ragas_evaluation_results.xlsx", index=False)
+    df.to_excel("tests/evaluation_results.xlsx", index=False)
+
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.max_colwidth', 30)
+    print(df)
 
 if __name__ == "__main__":
     main()
