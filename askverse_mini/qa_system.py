@@ -30,7 +30,6 @@ from datasets import Dataset
 from askverse_mini.document_processor import DocumentProcessor
 
 # Set up logging
-logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
 # Load environment variables

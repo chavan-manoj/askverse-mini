@@ -4,18 +4,15 @@ Entry point for AskVerse Mini
 
 import os
 import time
+import logging
 from dotenv import load_dotenv
 from askverse_mini.document_processor import DocumentProcessor
 from askverse_mini.qa_system import AskVerse
+from askverse_mini.askwiki import AskWiki
+from askverse_mini.askverse_mini import AskVerseMini
 
-def main():
-    # Load environment variables
-    load_dotenv()
-    
-    # Initialize document processor
+def setup_document_processor():
     processor = DocumentProcessor()
-    
-    # Load multiple PDF documents
     pdf_dir = "pdfs"  # Directory containing PDF files
     for pdf_file in os.listdir(pdf_dir):
         if pdf_file.endswith(".pdf"):
@@ -30,6 +27,11 @@ def main():
     doc_info = processor.get_document_info()
     for doc_id, info in doc_info['documents'].items():
         print(f"\nLoaded document: {doc_id} with {info['num_chunks']} chunks and {info['total_pages']} pages.")
+    return processor
+
+
+def main_askverse():
+    processor = setup_document_processor()
     
     # Initialize QA systems with different retriever strategies
     qa_systems = {
@@ -98,5 +100,33 @@ def main():
             print(f"\nError: {str(e)}")
             print("Please try rephrasing your question or ask a different one.")
 
+def main_askverse_mini(system: str = "wiki"):
+    if system == "wiki":
+        askverse_mini = AskWiki()
+        askverse_mini.initialize()
+    else:
+        askverse_mini = AskVerseMini()
+        askverse_mini.initialize(document_processor=setup_document_processor(), retriever_kind="dense")
+
+    print("\nAskVerse Mini is ready!\nType 'quit' at anytime to exit.")
+    print("-" * 80)
+    
+    while True:
+        question = input("\nEnter your question: ").strip()
+        
+        if question.lower() == "quit":
+            print("\nThank you for using AskWiki!")
+            break
+
+        answer = askverse_mini.ask(question)
+        print("Answer:", answer["answer"])
+        print("Sources:")
+        print(*answer["sources"], sep="\n")
+
 if __name__ == "__main__":
-    main()
+    logging.basicConfig(level=logging.INFO)
+    load_dotenv()
+
+    # main_askverse()
+    # main_askverse_mini("wiki")
+    main_askverse_mini("verse")

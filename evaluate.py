@@ -122,9 +122,11 @@ def main():
         llm=llm
     )
     
+    output_file = "tests/evaluation_results2.xlsx"
     df = result.to_pandas()
     df["Question Category"] = test_dataset_df["Question Category"]
-    df.to_excel("tests/evaluation_results.xlsx", index=False)
+    df.to_excel(output_file, index=False)
+    print(f"Evaluation results saved to {output_file}")
 
     pd.set_option('display.max_columns', None)
     pd.set_option('display.max_colwidth', 30)
