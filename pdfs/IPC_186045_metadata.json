@@ -1,0 +1,16 @@
+{
+    "title": "THE INDIAN PENAL CODE",
+    "year": 2023,
+    "document_type": "Laws",
+    "company": "Govt of India",
+    "category": "Laws",
+    "description": "Indian Penal codes",
+    "language": "en",
+    "visibility": "public",
+    "source": "IPC",
+    "author": "IPC",
+    "factual_score": 0.95,
+    "sentiment_score": 0.85,
+    "geographic_scope": "India",
+    "keywords":  "Penalty, crime, punishment, offenses"
+} 

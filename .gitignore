@@ -34,8 +34,6 @@ ENV/
 .DS_Store
 
 # Project specific
-pdfs/
-*.pdf
 .chroma/
 logs/
 *.log
