@@ -7,7 +7,6 @@
     "description": "Indian Penal codes",
     "language": "en",
     "visibility": "public",
-    "source": "IPC",
     "author": "IPC",
     "factual_score": 0.95,
     "sentiment_score": 0.85,

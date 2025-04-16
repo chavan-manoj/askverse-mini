@@ -101,20 +101,14 @@ class DocumentProcessor:
         for i, text in enumerate(splits):
             # Combine JSON metadata with required fields
             chunk_metadata = {
-                "id": str(start_idx + i),
-                "source": "dense",
-                "doc_id": doc_id,
-                "file_name": os.path.basename(pdf_path),
-                **metadata  # Include all JSON metadata
+                **metadata,  # Include all JSON metadata
+                "source": doc_id + " Chunk " + str(i)
             }
             self.dense_documents.append(Document(page_content=text, metadata=chunk_metadata))
             
             chunk_metadata = {
-                "id": str(start_idx + i),
-                "source": "sparse",
-                "doc_id": doc_id,
-                "file_name": os.path.basename(pdf_path),
-                **metadata  # Include all JSON metadata
+                **metadata,  # Include all JSON metadata
+                "source": doc_id + " Chunk " + str(i)
             }
             self.sparse_documents.append(Document(page_content=text, metadata=chunk_metadata))
             

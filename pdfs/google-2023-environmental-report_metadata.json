@@ -7,7 +7,6 @@
     "description": "Google's 2023 Environmental Report detailing the company's environmental impact, sustainability initiatives, and progress towards carbon neutrality and other environmental goals.",
     "language": "en",
     "visibility": "public",
-    "source": "Google",
     "author": "Google",
     "factual_score": 0.95,
     "sentiment_score": 0.85,

@@ -115,7 +115,7 @@ def main_askverse_mini(system: str = "wiki"):
         question = input("\nEnter your question: ").strip()
         
         if question.lower() == "quit":
-            print("\nThank you for using AskWiki!")
+            print("\nThank you for using AskVerse Mini!")
             break
 
         answer = askverse_mini.ask(question)
