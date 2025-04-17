@@ -8,8 +8,10 @@ import logging
 from dotenv import load_dotenv
 from askverse_mini.document_processor import DocumentProcessor
 from askverse_mini.qa_system import AskVerse
-from askverse_mini.askwiki import AskWiki
-from askverse_mini.askverse_mini import AskVerseMini
+from askverse_mini.ask_wiki import AskWiki
+from askverse_mini.ask_tavily import AskTavily
+from askverse_mini.ask_docs import AskDocs
+from askverse_mini.ask_arxiv import AskArxiv
 
 def setup_document_processor():
     processor = DocumentProcessor()
@@ -104,11 +106,17 @@ def main_askverse_mini(system: str = "wiki"):
     if system == "wiki":
         askverse_mini = AskWiki()
         askverse_mini.initialize()
+    elif system == "tavily":
+        askverse_mini = AskTavily()
+        askverse_mini.initialize()
+    elif system == "arxiv":
+        askverse_mini = AskArxiv()
+        askverse_mini.initialize()
     else:
-        askverse_mini = AskVerseMini()
+        askverse_mini = AskDocs()
         askverse_mini.initialize(document_processor=setup_document_processor(), retriever_kind="dense")
 
-    print("\nAskVerse Mini is ready!\nType 'quit' at anytime to exit.")
+    print("\nAskVerse", system, "is ready!\nType 'quit' at anytime to exit.")
     print("-" * 80)
     
     while True:
@@ -124,9 +132,16 @@ def main_askverse_mini(system: str = "wiki"):
         print(*answer["sources"], sep="\n")
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.WARN)
     load_dotenv()
 
-    # main_askverse()
-    # main_askverse_mini("wiki")
-    main_askverse_mini("verse")
+    while True:
+        system = input("\nChoose the system (wiki|tavily|arxiv|docs) or quit to quit: ").strip().lower()
+        
+        if system == "quit":
+            print("\nThank you for using AskVerse Mini!")
+            break
+        elif system not in ("wiki", "tavily", "arxiv", "docs"):
+            continue
+        else:
+            main_askverse_mini(system)

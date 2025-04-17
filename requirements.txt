@@ -17,3 +17,5 @@ pypdf
 rapidfuzz
 openpyxl
 wikipedia
+tavily-python
+arxiv

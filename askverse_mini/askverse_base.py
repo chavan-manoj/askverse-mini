@@ -1,11 +1,11 @@
 """
-Ask Wiki
+AskVerse Base class
 """
 
 import os
 import logging
+from abc import ABC, abstractmethod
 from langchain_openai import ChatOpenAI
-from langchain_community.retrievers import WikipediaRetriever
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.documents import Document
 from langgraph.graph import START, StateGraph
@@ -18,11 +18,10 @@ class State(TypedDict):
     context: List[Document]
     answer: str
 
-class AskWiki:
+class AskVerseBase(ABC):
     
     def initialize(self):
-        model_name = os.getenv("MODEL_NAME")
-        self.llm = ChatOpenAI(model_name=model_name, temperature=0, streaming=True)
+        self.llm = self._prepare_llm()
         self.retriever = self._prepare_retriever()
         self.prompt = self._prepare_prompt()
         self.graph = self._prepare_graph()
@@ -37,7 +36,11 @@ class AskWiki:
         
     def _retrieve(self, state: State):
         retrieved_docs = self.retriever.invoke(state["question"])
+        retrieved_docs = self._massage_retrieved_docs(retrieved_docs)
         return {"context": retrieved_docs}
+    
+    def _massage_retrieved_docs(self, retrieved_docs):
+        return retrieved_docs
 
     def _generate(self, state: State):
         docs_content = "\n\n".join(doc.page_content for doc in state["context"])
@@ -45,13 +48,18 @@ class AskWiki:
         response = self.llm.invoke(messages)
         return {"answer": response.content}
     
+    def _prepare_llm(self):
+        model_name = os.getenv("MODEL_NAME")
+        llm = ChatOpenAI(model_name=model_name, temperature=0, streaming=True)
+        return llm
+
     def _prepare_prompt(self):
         system_prompt = (
             "You're a helpful AI assistant. Given a user question "
-            "and some Wikipedia article snippets, answer the user "
+            "and some article snippets, answer the user "
             "question. If none of the articles answer the question, "
             "just say you don't know."
-            "\n\nHere are the Wikipedia articles: "
+            "\n\nHere are the articles: "
             "{context}"
         )
         prompt = ChatPromptTemplate.from_messages(
@@ -63,10 +71,9 @@ class AskWiki:
         logger.info(f"Prompt:\n{prompt.pretty_repr()}")
         return prompt
     
+    @abstractmethod
     def _prepare_retriever(self):
-        retriever = WikipediaRetriever(top_k_results=6, doc_content_chars_max=2000)
-        logger.info(f"Retriever:\n{retriever}")
-        return retriever
+        pass
         
     def _prepare_graph(self):
         graph_builder = StateGraph(State)
