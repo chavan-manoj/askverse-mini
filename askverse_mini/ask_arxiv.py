@@ -17,5 +17,5 @@ class AskArxiv(AskVerseBase):
     
     def _massage_retrieved_docs(self, retrieved_docs):
         for doc in retrieved_docs:
-            doc.metadata["source"] = doc.metadata["Entry ID"]
+            doc.metadata["source"] = doc.metadata["Entry ID"] + " - " + doc.metadata["Title"]
         return retrieved_docs
