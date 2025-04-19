@@ -5,7 +5,9 @@ Entry point for AskVerse Mini
 import os
 import time
 import logging
+from colorama import Fore, Style
 from dotenv import load_dotenv
+from askverse_mini.ask_ensemble import AskEnsemble
 from askverse_mini.document_processor import DocumentProcessor
 from askverse_mini.qa_system import AskVerse
 from askverse_mini.ask_wiki import AskWiki
@@ -112,9 +114,12 @@ def main_askverse_mini(system: str = "wiki"):
     elif system == "arxiv":
         askverse_mini = AskArxiv()
         askverse_mini.initialize()
-    else:
+    elif system == "docs":
         askverse_mini = AskDocs()
         askverse_mini.initialize(document_processor=setup_document_processor(), retriever_kind="dense")
+    elif system == "ensemble":
+        askverse_mini = AskEnsemble()
+        askverse_mini.initialize(document_processor=setup_document_processor(), retriever_kind="ensemble")
 
     print("\nAskVerse", system, "is ready!\nType 'quit' at anytime to exit.")
     print("-" * 80)
@@ -127,21 +132,28 @@ def main_askverse_mini(system: str = "wiki"):
             break
 
         answer = askverse_mini.ask(question)
-        print("Answer:", answer["answer"])
+        print("Answer:")
+        print(Fore.LIGHTBLUE_EX, answer["answer"], Style.RESET_ALL)
         print("Sources:")
-        print(*answer["sources"], sep="\n")
+
+        sorted_sources = sorted(answer["sources"])
+        print(Fore.LIGHTBLUE_EX, end="")
+        for idx, source in enumerate(sorted_sources, start=1):
+            print(f"{idx}. {source}")
+        print(Style.RESET_ALL)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.WARN)
     load_dotenv()
 
     while True:
-        system = input("\nChoose the system (wiki|tavily|arxiv|docs) or quit to quit: ").strip().lower()
+        system = input("\nChoose the system (wiki|tavily|arxiv|docs|ensemble) or quit to quit: ").strip().lower()
         
         if system == "quit":
             print("\nThank you for using AskVerse Mini!")
             break
-        elif system not in ("wiki", "tavily", "arxiv", "docs"):
+        elif system not in ("wiki", "tavily", "arxiv", "docs", "ensemble"):
+            print("Invalid choice.")
             continue
         else:
             main_askverse_mini(system)
