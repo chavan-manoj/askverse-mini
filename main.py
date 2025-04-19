@@ -22,20 +22,20 @@ def setup_document_processor():
         return document_processor
     
     processor = DocumentProcessor()
-    pdf_dir = "pdfs"  # Directory containing PDF files
-    for pdf_file in os.listdir(pdf_dir):
-        if pdf_file.endswith(".pdf"):
-            pdf_path = os.path.join(pdf_dir, pdf_file)
-            print(f"Loading PDF: {pdf_file}")
-            processor.load_pdf(pdf_path)
+    pdf_dir = "pdfs"
+    pdf_files = [f for f in os.listdir(pdf_dir) if f.endswith(".pdf")]
+
+    for pdf_file in pdf_files:
+        pdf_path = os.path.join(pdf_dir, pdf_file)
+        print(f"Loading PDF: {pdf_file}")
+        processor.load_pdf(pdf_path)
     
-    # Set up retrieval system
+    print("Storing documents in VectorDB...")
     processor.setup_retrievers()
     
-    # Print document information
     doc_info = processor.get_document_info()
     for doc_id, info in doc_info['documents'].items():
-        print(f"\nLoaded document: {doc_id} with {info['num_chunks']} chunks and {info['total_pages']} pages.")
+        print(f"Loaded document: {doc_id} with {info['total_pages']} pages and {info['num_chunks']} chunks")
     
     document_processor = processor
     return document_processor
@@ -48,20 +48,16 @@ def setup_askverse_system(system: str):
 
     if system == "wiki":
         askverse_system = AskWiki()
-        askverse_system.initialize()
     elif system == "tavily":
         askverse_system = AskTavily()
-        askverse_system.initialize()
     elif system == "arxiv":
         askverse_system = AskArxiv()
-        askverse_system.initialize()
     elif system == "docs":
-        askverse_system = AskDocs()
-        askverse_system.initialize(document_processor=setup_document_processor())
+        askverse_system = AskDocs(document_processor=setup_document_processor())
     elif system == "ensemble":
-        askverse_system = AskEnsemble()
-        askverse_system.initialize(document_processor=setup_document_processor())
-
+        askverse_system = AskEnsemble(document_processor=setup_document_processor())
+    
+    askverse_system.initialize()
     askverse_systems[system] = askverse_system
     return askverse_system
 
@@ -70,7 +66,7 @@ def run_system(system: str = "wiki"):
     print("-" * 80)
     
     while True:
-        question = input("\nEnter your question, q|quit to exit: ").strip()
+        question = input("\nEnter your question, (or q|quit to swtich system): ").strip()
         if question.lower() in ("q", "quit"):
             break
 
@@ -87,12 +83,12 @@ def run_system(system: str = "wiki"):
             print(f"{idx}. {source}")
         print(Style.RESET_ALL)
 
-if __name__ == "__main__":
+def main():
     logging.basicConfig(level=logging.WARN)
     load_dotenv()
 
     while True:
-        system = input("\nChoose the system (wiki|tavily|arxiv|docs|ensemble) or quit|q to exit: ").strip().lower()
+        system = input("\nChoose the system (wiki|tavily|arxiv|docs|ensemble) or (quit|q) to exit: ").strip().lower()
         
         if system in ("q", "quit"):
             print("Thank you for using AskVerse Mini!")
@@ -102,3 +98,6 @@ if __name__ == "__main__":
             continue
         else:
             run_system(system)
+
+if __name__ == "__main__":
+    main()

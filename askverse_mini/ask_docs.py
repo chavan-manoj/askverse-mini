@@ -9,14 +9,13 @@ from askverse_mini.document_processor import DocumentProcessor
 logger = logging.getLogger(__name__)
 
 class AskDocs(AskVerseBase):
+
+    def __init__(self, document_processor: DocumentProcessor, retriever_kind: str = "dense"):
+        super().__init__()
+        self.document_processor = document_processor
+        self.retriever_kind = retriever_kind
     
-    def initialize(self, document_processor: DocumentProcessor, retriever_kind: str = "ensemble"):
-        self.llm = self._prepare_llm()
-        self.retriever = self._prepare_retriever(document_processor, retriever_kind)
-        self.prompt = self._prepare_prompt()
-        self.graph = self._prepare_graph()
-        
-    def _prepare_retriever(self, document_processor: DocumentProcessor, retriever_kind: str = "ensemble"):
-        retriever = document_processor.get_retriever(retriever_kind)
+    def _prepare_retriever(self):
+        retriever = self.document_processor.get_retriever(self.retriever_kind)
         logger.info(f"Retriever:\n{retriever}")
         return retriever
