@@ -7,59 +7,7 @@ import time
 import logging
 from colorama import Fore, Style
 from dotenv import load_dotenv
-from askverse_mini.ask_ensemble import AskEnsemble
-from askverse_mini.document_processor import DocumentProcessor
-from askverse_mini.qa_system import AskVerse
-from askverse_mini.ask_wiki import AskWiki
-from askverse_mini.ask_tavily import AskTavily
-from askverse_mini.ask_docs import AskDocs
-from askverse_mini.ask_arxiv import AskArxiv
-
-document_processor = None
-def setup_document_processor():
-    global document_processor
-    if document_processor is not None:
-        return document_processor
-    
-    processor = DocumentProcessor()
-    pdf_dir = "pdfs"
-    pdf_files = [f for f in os.listdir(pdf_dir) if f.endswith(".pdf")]
-
-    for pdf_file in pdf_files:
-        pdf_path = os.path.join(pdf_dir, pdf_file)
-        print(f"Loading PDF: {pdf_file}")
-        processor.load_pdf(pdf_path)
-    
-    print("Storing documents in VectorDB...")
-    processor.setup_retrievers()
-    
-    doc_info = processor.get_document_info()
-    for doc_id, info in doc_info['documents'].items():
-        print(f"Loaded document: {doc_id} with {info['total_pages']} pages and {info['num_chunks']} chunks")
-    
-    document_processor = processor
-    return document_processor
-
-askverse_systems = {}
-def setup_askverse_system(system: str):
-    global askverse_systems
-    if system in askverse_systems:
-        return askverse_systems[system]
-
-    if system == "wiki":
-        askverse_system = AskWiki()
-    elif system == "tavily":
-        askverse_system = AskTavily()
-    elif system == "arxiv":
-        askverse_system = AskArxiv()
-    elif system == "docs":
-        askverse_system = AskDocs(document_processor=setup_document_processor())
-    elif system == "ensemble":
-        askverse_system = AskEnsemble(document_processor=setup_document_processor())
-    
-    askverse_system.initialize()
-    askverse_systems[system] = askverse_system
-    return askverse_system
+from askverse_mini.askverse_system import *
 
 def run_system(system: str = "wiki"):
     askverse_system = setup_askverse_system(system)

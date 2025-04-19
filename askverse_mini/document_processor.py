@@ -173,4 +173,19 @@ class DocumentProcessor:
             "num_documents": len(self.document_metadata),
             "total_chunks": len(self.dense_documents),
             "documents": self.document_metadata
-        } 
+        }
+    
+    def setup(self, pdf_dir: str = "pdfs") -> None:
+        pdf_files = [f for f in os.listdir(pdf_dir) if f.endswith(".pdf")]
+
+        for pdf_file in pdf_files:
+            pdf_path = os.path.join(pdf_dir, pdf_file)
+            print(f"Loading PDF: {pdf_file}")
+            self.load_pdf(pdf_path)
+        
+        print("Storing documents in VectorDB...")
+        self.setup_retrievers()
+        
+        doc_info = self.get_document_info()
+        for doc_id, info in doc_info['documents'].items():
+            print(f"Loaded document: {doc_id} with {info['total_pages']} pages and {info['num_chunks']} chunks")
