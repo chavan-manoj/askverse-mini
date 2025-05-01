@@ -2,7 +2,6 @@
 Entry point for AskVerse Mini
 """
 
-import os
 import time
 import logging
 from colorama import Fore, Style
@@ -14,7 +13,7 @@ def run_system(system: str = "wiki"):
     print("-" * 80)
     
     while True:
-        question = input("\nEnter your question, (or q|quit to swtich system): ").strip()
+        question = input("\nEnter your question, (or q|quit to switch system): ").strip()
         if question.lower() in ("q", "quit"):
             break
 
