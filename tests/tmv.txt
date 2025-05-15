@@ -1,0 +1,351 @@
+import json
+import datetime
+import os
+import re
+
+def load_otm(path):
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def sanitize_mermaid_id(s):
+    s = re.sub(r'[^a-zA-Z0-9_]', '_', s)
+    if s.lower() in {"class", "end", "subgraph"}:
+        s = f"id_{s}"
+    return s
+
+def clean_label(s):
+    # Remove parens, curly braces, and square brackets from label
+    return re.sub(r'[\[\]\(\)\{\}]', '', s.replace('"', '\\"')) if s else ""
+
+def summarize_threats(threats, all_threats):
+    if not threats:
+        threats = []
+    severity_counts = {}
+    for t in threats:
+        threat = all_threats.get(t["threat"], {})
+        sev = threat.get("risk", {}).get("impact", "N/A")
+        severity_counts[sev] = severity_counts.get(sev, 0) + 1
+    return len(threats), severity_counts
+
+def summarize_mitigations(threats, all_threats):
+    if not threats:
+        threats = []
+    count = 0
+    for t in threats:
+        count += len(t.get("mitigations", []))
+    return count
+
+def build_numbering(otm):
+    numbering = {}
+    for idx, comp in enumerate(otm.get("components", []), 1):
+        numbering[comp["id"]] = idx
+    return numbering
+
+def otm_header_table(otm, otm_file):
+    project = otm.get("project", {})
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    table = [
+        "| Field           | Value                                         |",
+        "|-----------------|-----------------------------------------------|"
+    ]
+    for key, value in project.items():
+        if key == "attributes" and isinstance(value, dict):
+            for attr_key, attr_value in value.items():
+                table.append(f"| **{attr_key}** | {attr_value} |")
+        else:
+            table.append(f"| **{key}** | {value} |")
+    table.append(f"| **OTM Version** | {otm.get('otmVersion', '')} |")
+    table.append(f"| **Report Date** | {now} |")
+    table.append(f"| **OTM File**    | {otm_file} |")
+    return "\n".join(table)
+
+def components_table(otm, numbering):
+    rows = [
+        "| # | Name | Description | Trust Zone | Tags | Assets Processed | Assets Stored | Threats |",
+        "|---|------|-------------|------------|------|------------------|---------------|---------|"
+    ]
+    trust_zones = {tz["id"]: tz.get("name", "") for tz in otm.get("trustZones", [])}
+    threats = {t["id"]: t for t in otm.get("threats", [])}
+    for comp in otm.get("components", []):
+        idx = numbering.get(comp["id"], "")
+        name = clean_label(comp.get("name", ""))
+        desc = comp.get("description", "")
+        tz_id = comp.get("parent", {}).get("trustZone")
+        tz_name = trust_zones.get(tz_id, "") if tz_id else ""
+        tags = ", ".join(comp.get("tags", []) or [])
+        assets_processed = ", ".join(comp.get("assets", {}).get("processed", [])) if comp.get("assets") and comp.get("assets").get("processed") else ""
+        assets_stored = ", ".join(comp.get("assets", {}).get("stored", [])) if comp.get("assets") and comp.get("assets").get("stored") else ""
+        threat_list = []
+        for t in (comp.get("threats") or []):
+            threat = threats.get(t["threat"], {})
+            threat_list.append(clean_label(threat.get("name", "")))
+        threats_str = ", ".join(threat_list)
+        rows.append(f"| {idx} | {name} | {desc} | {tz_name} | {tags} | {assets_processed} | {assets_stored} | {threats_str} |")
+    return "\n".join(rows)
+
+def dataflows_table(otm, numbering):
+    rows = [
+        "| # | Name | Source | Destination | Description | Assets | Threats |",
+        "|---|------|--------|-------------|-------------|--------|---------|"
+    ]
+    comps = {c["id"]: clean_label(c.get("name", "")) for c in otm.get("components", [])}
+    threats = {t["id"]: t for t in otm.get("threats", [])}
+    for idx, df in enumerate(otm.get("dataflows", []), 1):
+        name = clean_label(df.get("name", ""))
+        src = comps.get(df.get("source", ""), df.get("source", ""))
+        dst = comps.get(df.get("destination", ""), df.get("destination", ""))
+        desc = df.get("description", "")
+        assets = ", ".join(df.get("assets", [])) if df.get("assets") else ""
+        threat_list = []
+        for t in (df.get("threats") or []):
+            threat = threats.get(t["threat"], {})
+            threat_list.append(clean_label(threat.get("name", "")))
+        threats_str = ", ".join(threat_list)
+        rows.append(f"| {idx} | {name} | {src} | {dst} | {desc} | {assets} | {threats_str} |")
+    return "\n".join(rows)
+
+def threats_table(otm):
+    rows = [
+        "| # | Name | Description | Categories | CWEs | Impact | Likelihood | Affected Components/Flows | Mitigations |",
+        "|---|------|-------------|------------|------|--------|------------|--------------------------|-------------|"
+    ]
+    comps = {c["id"]: clean_label(c.get("name", "")) for c in otm.get("components", [])}
+    dataflows = {df["id"]: clean_label(df.get("name", "")) for df in otm.get("dataflows", [])}
+    mitigations = {m["id"]: clean_label(m.get("name", "")) for m in otm.get("mitigations", [])}
+    for idx, t in enumerate(otm.get("threats", []), 1):
+        name = clean_label(t.get("name", ""))
+        desc = t.get("description", "")
+        cats = ", ".join(t.get("categories", []) or [])
+        cwes = ", ".join(t.get("cwes", []) or [])
+        impact = t.get("risk", {}).get("impact", "")
+        likelihood = t.get("risk", {}).get("likelihood", "")
+        affected = []
+        # Find affected components and dataflows
+        for comp in otm.get("components", []):
+            for ct in (comp.get("threats") or []):
+                if ct["threat"] == t["id"]:
+                    affected.append(f"Component: {comps.get(comp['id'], comp['id'])}")
+        for df in otm.get("dataflows", []):
+            for dft in (df.get("threats") or []):
+                if dft["threat"] == t["id"]:
+                    affected.append(f"Dataflow: {dataflows.get(df['id'], df['id'])}")
+        affected_str = ", ".join(affected)
+        # Mitigations
+        mit_list = []
+        for m in t.get("mitigations", []):
+            mit_list.append(mitigations.get(m["mitigation"], m["mitigation"]))
+        # Also check mitigations in component/dataflow threat refs
+        for comp in otm.get("components", []):
+            for ct in (comp.get("threats") or []):
+                if ct["threat"] == t["id"]:
+                    for m in ct.get("mitigations", []):
+                        mit_list.append(mitigations.get(m["mitigation"], m["mitigation"]))
+        for df in otm.get("dataflows", []):
+            for dft in (df.get("threats") or []):
+                if dft["threat"] == t["id"]:
+                    for m in dft.get("mitigations", []):
+                        mit_list.append(mitigations.get(m["mitigation"], m["mitigation"]))
+        mit_str = ", ".join(set(mit_list))
+        rows.append(f"| {idx} | {name} | {desc} | {cats} | {cwes} | {impact} | {likelihood} | {affected_str} | {mit_str} |")
+    return "\n".join(rows)
+
+def mitigations_table(otm):
+    rows = [
+        "| # | Name | Description | Risk Reduction |",
+        "|---|------|-------------|---------------|"
+    ]
+    for idx, m in enumerate(otm.get("mitigations", []), 1):
+        name = clean_label(m.get("name", ""))
+        desc = m.get("description", "")
+        risk_reduction = m.get("riskReduction", "")
+        rows.append(f"| {idx} | {name} | {desc} | {risk_reduction} |")
+    return "\n".join(rows)
+
+def risk_summary(otm):
+    from collections import Counter
+
+    threats = otm.get("threats", [])
+    mitigations = otm.get("mitigations", [])
+
+    # Collect all threat refs from components and dataflows
+    threat_refs = []
+    for comp in otm.get("components", []):
+        threat_refs.extend(comp.get("threats", []) or [])
+    for df in otm.get("dataflows", []):
+        threat_refs.extend(df.get("threats", []) or [])
+
+    # Map threat id to master threat for category/impact
+    threat_map = {t["id"]: t for t in threats}
+
+    # Impact buckets, categories, mitigation states
+    impact_buckets = {"High": 0, "Medium": 0, "Low": 0}
+    categories_counter = Counter()
+    mitigation_state_counter = Counter()
+
+    for tref in threat_refs:
+        t = threat_map.get(tref.get("threat"))
+        if t:
+            impact = t.get("risk", {}).get("impact", 0)
+            if impact >= 80:
+                impact_buckets["High"] += 1
+            elif impact >= 40:
+                impact_buckets["Medium"] += 1
+            else:
+                impact_buckets["Low"] += 1
+            for cat in t.get("categories", []):
+                categories_counter[cat] += 1
+        # Count mitigation states
+        for m in tref.get("mitigations", []):
+            state = m.get("state", "unknown")
+            mitigation_state_counter[state] += 1
+
+    mitigated = sum(len(tref.get("mitigations", [])) for tref in threat_refs)
+    summary = [
+        "## Risk Posture Summary"        
+    ]
+
+    # Mermaid pie chart for impact
+    summary.append("\n### Threats by Impact")
+    summary.append("::: mermaid\npie showData title Threats by Impact")
+    for k, v in impact_buckets.items():
+        summary.append(f'    "{k}" : {v}')
+    summary.append(":::\n")
+
+    # Mermaid pie chart for categories
+    if categories_counter:
+        summary.append("### Threats by Category")
+        summary.append("::: mermaid\npie showData title Threats by Category")
+        for k, v in categories_counter.items():
+            summary.append(f'    "{k}" : {v}')
+        summary.append(":::\n")
+
+    # Mermaid pie chart for mitigation states
+    if mitigation_state_counter:
+        summary.append("### Mitigations by State")
+        summary.append("::: mermaid\npie showData title Mitigations by State")
+        for k, v in mitigation_state_counter.items():
+            summary.append(f'    "{k}" : {v}')
+        summary.append(":::\n")
+
+    return "\n".join(summary)
+
+def render_shapes_and_subgraphs(otm, numbering):
+    components = {c["id"]: c for c in otm.get("components", [])}
+    trust_zones = {tz["id"]: tz for tz in otm.get("trustZones", [])}
+    lines = []
+    rendered_components = set()
+    subgraph_classes = []
+
+    for tz_id, tz in trust_zones.items():
+        tz_node = sanitize_mermaid_id(tz_id)
+        tz_label = clean_label(tz['name'])
+        lines.append(f"  subgraph {tz_node}[\"{tz_label}\"]")
+        subgraph_classes.append(f"{tz_node}:::boundary")
+        for comp in components.values():
+            parent = comp.get("parent", {})
+            if parent.get("trustZone") == tz_id and "component" not in parent:
+                lines += render_component_shape(otm, comp["id"], components, numbering)
+                rendered_components.add(comp["id"])
+        lines.append(f"  end")
+
+    for comp in components.values():
+        if comp["id"] not in rendered_components and not comp.get("parent"):
+            lines += render_component_shape(otm, comp["id"], components, numbering)
+            rendered_components.add(comp["id"])
+
+    return lines, subgraph_classes
+
+def render_component_shape(otm, component_id, components, numbering, depth=2):
+    comp = components[component_id]
+    comp_num = numbering.get(component_id, "")
+    label = f"#{comp_num} {clean_label(comp['name'])}"
+    indent = "  " * depth
+    node_id = sanitize_mermaid_id(component_id)
+    children = [
+        child for child in components.values()
+        if child.get("parent", {}).get("component") == component_id
+    ]
+    lines = []
+    if children:
+        lines.append(f"{indent}subgraph {node_id}[\"{label}\"]")
+        for child in children:
+            lines += render_component_shape(otm, child["id"], components, numbering, depth + 1)
+        lines.append(f"{indent}end")
+    else:
+        comp_threats = comp.get("threats", []) or []
+        threats = {t["id"]: t for t in otm.get("threats", [])}
+        summary = summarize_threats_mitigations(comp_threats, threats)
+        lines.append(f"{indent}{node_id}[\"{label}{summary}\"]")
+    return lines
+
+def summarize_threats_mitigations(comp_threats, threats):
+    t_count, t_sevs = summarize_threats(comp_threats, threats)
+    m_count = summarize_mitigations(comp_threats, threats)
+    summary = ""
+    if t_count > 0:
+        summary = f"<br/>T={t_count} M={m_count}"
+    return summary
+
+def render_edges(otm, numbering, all_threats):
+    components = {c["id"]: c for c in otm.get("components", [])}
+    dataflows = otm.get("dataflows", [])
+    threats = {t["id"]: t for t in otm.get("threats", [])}
+    lines = []
+    for idx, df in enumerate(dataflows, 1):
+        src = sanitize_mermaid_id(df["source"])
+        dst = sanitize_mermaid_id(df["destination"])
+        label = clean_label(df.get("name", f"Dataflow {idx}"))
+        df_threats = df.get("threats", []) or []
+        summary = summarize_threats_mitigations(df_threats, threats)
+        lines.append(f"  {src} -->|{label}{summary}| {dst}")
+    return lines
+
+def generate_mermaid(otm, numbering):
+    threats = {t["id"]: t for t in otm.get("threats", [])}
+    shapes, subgraph_classes = render_shapes_and_subgraphs(otm, numbering)
+    edges = render_edges(otm, numbering, threats)
+    lines = [
+        "graph TD",
+        "classDef boundary stroke-dasharray: 5 5,stroke-width:2px;",
+    ]
+    lines += shapes
+    lines += edges
+    lines += subgraph_classes
+    return "\n".join(lines)
+
+def generate_report(otm, mermaid, otm_path, numbering):
+    otm_file = os.path.basename(otm_path)
+    report = []
+    report.append("# Threat Model Report\n")
+    report.append("## Project Overview\n")
+    report.append(otm_header_table(otm, otm_file))
+    report.append("\n---\n")
+    report.append(risk_summary(otm))
+    report.append("\n---\n")
+    report.append("## System Diagram\n")
+    report.append("::: mermaid")
+    report.append(mermaid)
+    report.append(":::\n")
+    report.append("## Components\n")
+    report.append(components_table(otm, numbering))
+    report.append("\n## Dataflows\n")
+    report.append(dataflows_table(otm, numbering))
+    report.append("\n## Threats\n")
+    report.append(threats_table(otm))
+    report.append("\n## Mitigations\n")
+    report.append(mitigations_table(otm))
+    return "\n".join(report)
+
+def save_to_markdown(report, filename="threat_model_report.md"):
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(report)
+
+if __name__ == "__main__":
+    otm_path = "banking.otm.json"  # replace with your OTM file
+    report_path = "banking.otm.md"  # replace with your desired output file
+    otm = load_otm(otm_path)
+    numbering = build_numbering(otm)
+    mermaid = generate_mermaid(otm, numbering)
+    report = generate_report(otm, mermaid, otm_path, numbering)
+    save_to_markdown(report, "banking.otm.md")
+    print("✅ Threat model report saved to", report_path)
