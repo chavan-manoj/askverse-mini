@@ -11,7 +11,7 @@ import os
 import json
 import http.client
 from typing import TypedDict, Optional, List
-from langchain_community.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 from langgraph.graph import StateGraph, END
 import random
