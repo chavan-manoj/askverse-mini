@@ -1,4 +1,3 @@
-#WIP - Work In Progress
 # This is a simple agentic AI assistant that can plan, collect inputs, confirm actions, and execute them.
 # It uses a state graph to manage the flow of actions and a language model to generate responses.
 # It also integrates with an external API to search for movies and provides a CLI for user interaction.
@@ -80,10 +79,7 @@ class AgentState(TypedDict):
 # === Step 1: LLM Planning & Input Extraction ===
 def plan_tools_and_inputs(state: AgentState) -> AgentState:
     prompt = ChatPromptTemplate.from_messages([
-        ("system",
-         "You are a smart assistant. Identify which tools to use for a user query and extract as many inputs as possible, "
-         "specify None as input_value in tool_inputs if no input is already provided."
-         ),
+        ("system", "You are a smart assistant. Identify which tools to use for a user query and extract as many inputs as possible, specify None as input_value in tool_inputs if no input is already provided."),
         ("user", 
          "User input: {input}\n\n"
          "Available tools:\n"
@@ -92,8 +88,7 @@ def plan_tools_and_inputs(state: AgentState) -> AgentState:
          "- invoice_user(name, email, amount)\n"
          "- search_movie_reviews(movie_name)\n\n"
          "Respond in JSON format:\n"
-         "{{tool_plan: [...], tool_inputs: {{tool_name: {{input_name: input_value}}}}}}"
-         )
+         "{{tool_plan: [...], tool_inputs: {{tool_name: {{input_name: input_value}}}}}}")
     ])
     chain = prompt | llm
     response = chain.invoke({"input": state["user_input"]}).content
