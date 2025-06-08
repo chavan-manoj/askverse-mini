@@ -1,0 +1,230 @@
+openapi: 3.0.3
+info:
+  title: IMDb Movie Search API
+  version: 1.0.0
+  description: |
+    Search for movies in the IMDb database using a variety of filters.
+servers:
+  - url: https://imdb236.p.rapidapi.com
+    description: RapidAPI IMDb Server
+
+paths:
+  /api/imdb/search:
+    get:
+      summary: Search IMDb movies, TV series etc by name, type, genre, and other filters.
+      description: |
+        Search for movies, TV series, and mini-series in the IMDb database using various filters such as title, type, genre, rating, votes, year, country of origin, and spoken languages.
+      parameters:
+        - name: originalTitle
+          in: query
+          schema:
+            type: string
+          description: Original title of the movie.
+        - name: originalTitleAutocomplete
+          in: query
+          schema:
+            type: string
+          description: Autocomplete for original title.
+        - name: primaryTitle
+          in: query
+          schema:
+            type: string
+          description: Primary title of the movie.
+        - name: primaryTitleAutocomplete
+          in: query
+          schema:
+            type: string
+          description: Autocomplete for primary title.
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [movie, tvSeries, tvMiniSeries]
+          description: Type of the title.
+        - name: genre
+          in: query
+          schema:
+            type: string
+          description: Single genre (title cased string, e.g., "Drama").
+        - name: genres
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: false
+          description: Array of genres (title cased strings, e.g., ["Drama","Romance"]).
+        - name: isAdult
+          in: query
+          schema:
+            type: boolean
+          description: Whether the title is for adults.
+        - name: averageRatingFrom
+          in: query
+          schema:
+            type: number
+            format: float
+          description: Minimum average rating.
+        - name: averageRatingTo
+          in: query
+          schema:
+            type: number
+            format: float
+          description: Maximum average rating.
+        - name: numVotesFrom
+          in: query
+          schema:
+            type: integer
+          description: Minimum number of votes.
+        - name: numVotesTo
+          in: query
+          schema:
+            type: integer
+          description: Maximum number of votes.
+        - name: rows
+          in: query
+          schema:
+            type: integer
+          description: Number of results to return.
+        - name: startYearFrom
+          in: query
+          schema:
+            type: integer
+          description: Start year (from).
+        - name: startYearTo
+          in: query
+          schema:
+            type: integer
+          description: Start year (to).
+        - name: countriesOfOrigin
+          in: query
+          schema:
+            type: string
+          description: Array of ISO 3166-1 alpha-2 country codes. E.g., "IN" for India.
+        - name: spokenLanguages
+          in: query
+          schema:
+            type: string
+          description: Array of ISO 639-1 language codes. E.g., "Hi" for Hindi.
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [ASC, DESC]
+          description: Sort order.
+        - name: sortField
+          in: query
+          schema:
+            type: string
+            enum: [Id, averageRating, numVotes, startYear]
+          description: Field to sort by (e.g., "averageRating").
+      responses:
+        '200':
+          description: Successful search
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rows:
+                    type: integer
+                    description: Number of results returned in this response.
+                  numFound:
+                    type: integer
+                    description: Total number of results matching the query.
+                  results:
+                    type: array
+                    description: List of movie results.
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        url:
+                          type: string
+                        primaryTitle:
+                          type: string
+                        originalTitle:
+                          type: string
+                        type:
+                          type: string
+                        description:
+                          type: string
+                          nullable: true
+                        primaryImage:
+                          type: string
+                          nullable: true
+                        trailer:
+                          type: string
+                          nullable: true
+                        contentRating:
+                          type: string
+                          nullable: true
+                        isAdult:
+                          type: boolean
+                        releaseDate:
+                          type: string
+                          format: date
+                          nullable: true
+                        startYear:
+                          type: integer
+                        endYear:
+                          type: integer
+                          nullable: true
+                        runtimeMinutes:
+                          type: integer
+                          nullable: true
+                        genres:
+                          type: array
+                          items:
+                            type: string
+                        interests:
+                          type: array
+                          items:
+                            type: string
+                        countriesOfOrigin:
+                          type: array
+                          items:
+                            type: string
+                        externalLinks:
+                          type: array
+                          items:
+                            type: string
+                          nullable: true
+                        spokenLanguages:
+                          type: array
+                          items:
+                            type: string
+                        filmingLocations:
+                          type: string
+                          nullable: true
+                        productionCompanies:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                              name:
+                                type: string
+                        budget:
+                          type: integer
+                          nullable: true
+                        grossWorldwide:
+                          type: integer
+                          nullable: true
+                        averageRating:
+                          type: number
+                          format: float
+                          nullable: true
+                        numVotes:
+                          type: integer
+                          nullable: true
+                        metascore:
+                          type: integer
+                          nullable: true
+                  nextCursorMark:
+                    type: string
+                    description: Cursor for fetching the next set of results.
+                    nullable: true
