@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
-from askverse_mini.rapid_api import RapidAPI
+from askverse_mini.api.rapid_api import RapidAPI
+from askverse_mini.api.open_api_agent import OpenAPIAgent
 
 load_dotenv()
 MODEL_NAME = os.getenv("MODEL_NAME")
@@ -32,8 +33,17 @@ def test_search_movie_ai():
     summary, _ = rapid_api.search_movie_ai(query)
     print(f"AI Summary: {summary}")
 
+def test_open_api_agent():
+    agent = OpenAPIAgent()
+    user_query = input("Enter your query for the OpenAPI agent: ")
+    plan = agent.plan(user_query)
+    print("Planned API calls:")
+    for action in plan:
+        print(action)
+
 if __name__ == "__main__":
     load_dotenv()
     # test_weather()
     # test_search_name()
-    test_search_movie_ai()
+    # test_search_movie_ai()
+    test_open_api_agent()

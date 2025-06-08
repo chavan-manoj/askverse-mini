@@ -106,7 +106,7 @@ paths:
           in: query
           schema:
             type: string
-          description: Array of ISO 639-1 language codes. E.g., "Hi" for Hindi.
+          description: Array of ISO 639-1 language codes. E.g., "hi" for Hindi, "en" for English, "ja" for Japanese.
         - name: sortOrder
           in: query
           schema:

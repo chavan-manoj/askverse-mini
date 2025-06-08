@@ -1,8 +1,8 @@
 import os
 import json
 import urllib.parse
-from askverse_mini.llm import LLM
-from askverse_mini.rapid_apigateway import RapidAPIGateway
+from askverse_mini.ai.llm import LLM
+from askverse_mini.api.rapid_apigateway import RapidAPIGateway
 
 class RapidAPI:
     def __init__(self):

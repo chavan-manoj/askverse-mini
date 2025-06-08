@@ -35,12 +35,12 @@ def main():
     load_dotenv()
 
     while True:
-        system = input("\nChoose the system (wiki|tavily|arxiv|docs|ensemble) or (quit|q) to exit: ").strip().lower()
+        system = input("\nChoose the system (wiki|tavily|arxiv|docs|ensemble|apis) or (quit|q) to exit: ").strip().lower()
         
         if system in ("q", "quit"):
             print("Thank you for using AskVerse Mini!")
             break
-        elif system not in ("wiki", "tavily", "arxiv", "docs", "ensemble"):
+        elif system not in ("wiki", "tavily", "arxiv", "docs", "ensemble", "apis"):
             print("Invalid choice.")
             continue
         else:
