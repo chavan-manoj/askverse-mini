@@ -35,7 +35,7 @@ from ragas.metrics import (
 from ragas import evaluate
 from langchain_openai import ChatOpenAI
 from datasets import Dataset
-from askverse_mini.qa_system import AskVerse
+from askverse_mini.experiment.qa_system import AskVerse
 from askverse_mini.document_processor import DocumentProcessor
 
 # Load environment variables
