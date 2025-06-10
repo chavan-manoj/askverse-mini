@@ -22,33 +22,19 @@ class OpenAPIAgent:
                 specs.append(yaml.safe_load(f))
         return specs
 
-    def _oas_summary(self) -> str:
-        """
-        Returns a summary string of all loaded OpenAPI specs for LLM context.
-        """
-        summaries = []
-        for spec in self.api_specs:
-            title = spec.get("info", {}).get("title", "Unknown API")
-            servers = [s["url"] for s in spec.get("servers", [])] if "servers" in spec else []
-            for path, methods in spec.get("paths", {}).items():
-                for method, details in methods.items():
-                    params = details.get("parameters", [])
-                    param_str = ", ".join([f"{p['name']} ({p['schema']['type']})" for p in params if "name" in p and "schema" in p])
-                    summaries.append(
-                        f"API: {title}\nServer(s): {servers}\nPath: {path}\nMethod: {method.upper()}\nParameters: {param_str}\n"
-                    )
-        return "\n".join(summaries)
-
     def plan(self, user_query: str) -> Dict[str, Any]:
         """
         Given a user query, returns a plan of API calls to accomplish the task.
         """
         system_prompt = (
-            "You are an expert API planner. You have access to the following OpenAPI specs:\n"
-            f"{self._oas_summary()}\n"
+            "You are an expert API planner, who thoroughly understands Open API Specification. "
+            "You have access to the following Open API specs:\n"
+            "\n\n ```yaml\n".join([yaml.dump(spec) for spec in self.api_specs]) + "\n\n"
+            "understand the description, summary, parameters, and other details of each API. "
             "Given a user question or task, identify exactly which APIs and methods need to be executed, "
             "in which sequence, and extract the parameters already specified by the user. "
             "List any mandatory parameters that are still required to execute the API(s). "
+            "Return an empty list if the user query is unrelated to these API definitions or no API can meet the tasks/subtasks given as user query. "
             "Automatically convert the parameters to appropriate data types, formats and enum values (wherever applicable), "
             "Identify if the parameter values are single values or lists, based on that identify the most appropriate parameter. "
             "e.g., use genre parameter for singular value and genres for plural parameter (if defined in schema). "

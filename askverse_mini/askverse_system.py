@@ -1,5 +1,6 @@
 from askverse_mini.ask_apis import AskAPIs
 from askverse_mini.ask_ensemble import AskEnsemble
+from askverse_mini.ask_verse import AskVerse
 from askverse_mini.document_processor import DocumentProcessor
 from askverse_mini.ask_wiki import AskWiki
 from askverse_mini.ask_tavily import AskTavily
@@ -32,6 +33,8 @@ def setup_askverse_system(system: str):
         askverse_system = AskEnsemble(document_processor=setup_document_processor())
     elif system == "apis":
         askverse_system = AskAPIs(oas_dir="oas")
+    elif system == "verse":
+        askverse_system = AskVerse(AskEnsemble(document_processor=setup_document_processor()), AskAPIs(oas_dir="oas"))
     
     askverse_system.initialize()
     askverse_systems[system] = askverse_system

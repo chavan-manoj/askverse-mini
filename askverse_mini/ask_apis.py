@@ -22,11 +22,16 @@ class AskAPIs:
         
     def ask(self, question: str):
         plan = self.agent.plan(question)
+        if not plan or len(plan) == 0:
+            return {
+                "sources": [],
+                "answer": "No relevant APIs found for the given query."
+            }
         print(f"Planned {len(plan)} API calls:")
         for action in plan:
             print(action)
-        confirmed = input("Proceed with these actions? You will be prompted for missing parameters. (type yes to continue): ").strip().lower()
-        if confirmed != "yes":
+        confirmed = input("Proceed with these actions? You will be prompted for missing parameters. (type y|yes to continue): ").strip().lower()
+        if confirmed.upper() not in ("Y", "YES"):
             return {
                 "sources": [],
                 "answer": "Discarded the plan."
