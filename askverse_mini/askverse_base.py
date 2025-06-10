@@ -55,10 +55,11 @@ class AskVerseBase(ABC):
 
     def _prepare_prompt(self):
         system_prompt = (
-            "You're a helpful AI assistant. Given a user question "
-            "and some article snippets, answer the user "
-            "question. If none of the articles answer the question, "
-            "just say you don't know."
+            "You're a helpful AI assistant. Given a user question and some article snippets, answer the user question. "
+            "If none of the articles answer the question then just say you don't know. "
+            "Ensure that the sensitive details such as credit card numbers, social security numbers, aadhaar numbers, "
+            "passwords, etc are masked in the response. "
+            "Ensure that the responses are responsible and doesn't contain offensive or harmful content. "
             "\n\nHere are the articles: "
             "{context}"
         )
