@@ -29,9 +29,11 @@ class AskVerseBase(ABC):
     def ask(self, question: str):
         result = self.graph.invoke({"question": question})
         sources = [doc.metadata["source"] for doc in result["context"]]
+        retrieved_docs = [doc.page_content for doc in result["context"]]
         return {
             "sources": sources,
-            "answer": result["answer"]
+            "answer": result["answer"],
+            "retrieved_docs": retrieved_docs
         }
         
     def _retrieve(self, state: State):

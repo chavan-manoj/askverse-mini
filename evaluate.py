@@ -35,54 +35,26 @@ from ragas.metrics import (
 from ragas import evaluate
 from langchain_openai import ChatOpenAI
 from datasets import Dataset
-from askverse_mini.experiment.qa_system import AskVerse
-from askverse_mini.document_processor import DocumentProcessor
-
-# Load environment variables
-load_dotenv()
-
-def setup_document_processor(pdf_dir):
-    processor = DocumentProcessor()
-    for pdf_file in os.listdir(pdf_dir):
-        if pdf_file.endswith(".pdf"):
-            pdf_path = os.path.join(pdf_dir, pdf_file)
-            print(f"Loading PDF: {pdf_file}")
-            processor.load_pdf(pdf_path)
-    
-    processor.setup_retrievers()
-    return processor
+from askverse_mini.askverse_system import *
 
 def generate_test_data(test_dataset_path):
     """Generate test data"""
 
+    print("Initializing AskVerse docs...")
+    askverse_system = setup_askverse_system("docs")
+
+    print("Loading test data...")
     df = pd.read_excel(test_dataset_path)
     questions = df["Question"].tolist()
     references = df["Expected Answer"].tolist()
     answers = []
     contexts = []
 
-    qa_systems = {
-        "dense_only": AskVerse(),
-        "sparse_only": AskVerse(),
-        "ensemble": AskVerse(),
-        "web_ensemble": AskVerse()
-    }
-    
-    pdf_dir = "pdfs"  # Directory containing PDF files
-    processor = setup_document_processor(pdf_dir)
-    qa_systems["dense_only"].initialize(processor, use_web_search=False, retriever_kind="dense")
-    qa_systems["sparse_only"].initialize(processor, use_web_search=False, retriever_kind="sparse")
-    qa_systems["ensemble"].initialize(processor, use_web_search=False, retriever_kind="ensemble")
-    qa_systems["web_ensemble"].initialize(processor, use_web_search=True, retriever_kind="ensemble")
-    
-    # Choose the retriever kind to evaluate
-    current_system = "dense_only" # "sparse_only", "ensemble", "web_ensemble"
-
     print("Asking questions to AskVerse...")
     for question in tqdm(questions):
-        answer = qa_systems[current_system].ask_with_metrics(question)
-        answers.append(answer["content"])
-        contexts.append([answer["retrieved_docs"]])
+        response = askverse_system.ask(question)
+        answers.append(response["answer"])
+        contexts.append(response["retrieved_docs"])
     
     test_data = {
         "question": questions,
@@ -90,11 +62,12 @@ def generate_test_data(test_dataset_path):
         "contexts": contexts,
         "reference": references,
     }
-    
     return test_data, df
 
 def main():
     """Main function to evaluate the RAG systems using RAGAS evaluation framework"""
+
+    load_dotenv()
     test_data, test_dataset_df = generate_test_data("tests/ragas_test_dataset.xlsx")
     
     # Convert to Dataset format required by Ragas
@@ -122,7 +95,7 @@ def main():
         llm=llm
     )
     
-    output_file = "tests/evaluation_results2.xlsx"
+    output_file = "tests/ragas_evaluation_results.xlsx"
     df = result.to_pandas()
     df["Question Category"] = test_dataset_df["Question Category"]
     df.to_excel(output_file, index=False)
