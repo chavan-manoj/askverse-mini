@@ -1,0 +1,74 @@
+- example_query: "How is the weather in Bengaluru?"
+  example_response:
+    - sequence: 1
+      type: api
+      action:
+        server: "https://weatherapi-com.p.rapidapi.com"
+        method: "GET"
+        url: "/forecast.json?q=Bengaluru&days={days}"
+        payload: null
+        missing_params:
+          - name: days
+            description: "Number of days for the forecast (1-10)"
+
+- example_query: "Name top 5 hindi comedy movies rated above 7 created before 1980 and has more than 1K votes"
+  example_response:
+    - sequence: 1
+      type: api
+      action:
+        server: "https://imdb236.p.rapidapi.com"
+        method: "GET"
+        url: "/api/imdb/search?type=movie&genre=Comedy&averageRatingFrom=7&numVotesFrom=1000&startYearTo=1979&rows=5&spokenLanguages=hi"
+        payload: null
+        missing_params: []
+
+- example_query: "Which movie has better rating - Sholay or Anand?"
+  example_response:
+    - sequence: 1
+      type: api
+      action:
+        server: "https://imdb236.p.rapidapi.com"
+        method: "GET"
+        url: "/api/imdb/search?originalTitle=Sholay&rows=1"
+        payload: null
+        missing_params: []
+    - sequence: 2
+      type: api
+      action:
+        server: "https://imdb236.p.rapidapi.com"
+        method: "GET"
+        url: "/api/imdb/search?originalTitle=Anand&rows=1"
+        payload: null
+        missing_params: []
+
+- example_query: "What are the latest advancements in quantum computing according to recent arXiv papers?"
+  example_response:
+    - sequence: 1
+      type: arxiv
+      action:
+        subquery: "What are the latest advancements in quantum computing according to recent arXiv papers?"
+
+- example_query: "What is the history of the Eiffel Tower?"
+  example_response:
+    - sequence: 1
+      type: wiki
+      action:
+        subquery: "What is the history of the Eiffel Tower?"
+
+- example_query: "What is the stock price of Kotak bank?"
+  example_response:
+    - sequence: 1
+      type: tavily
+      action:
+        subquery: "What is the stock price of Kotak bank?"
+
+- example_query: "Which offences are punishable under the Indian Penal Code for children below the age of 7? Who was the first prime minister of India?"
+  example_response:
+    - sequence: 1
+      type: docs
+      action:
+        subquery: "Which offences are punishable under the Indian Penal Code for children below the age of 7?"
+    - sequence: 1
+      type: wiki
+      action:
+        subquery: "Who was the first prime minister of India?"

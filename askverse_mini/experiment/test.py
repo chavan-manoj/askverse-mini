@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 from askverse_mini.api.rapid_api import RapidAPI
-from askverse_mini.api.open_api_agent import OpenAPIAgent
+from askverse_mini.ai.open_api_agent import OpenAPIAgent
 
 load_dotenv()
 MODEL_NAME = os.getenv("MODEL_NAME")

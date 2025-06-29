@@ -2,7 +2,7 @@ import logging
 import json
 from urllib.parse import urlparse
 from askverse_mini.ai.llm import LLM
-from askverse_mini.api.open_api_agent import OpenAPIAgent
+from askverse_mini.ai.open_api_agent import OpenAPIAgent
 from askverse_mini.api.rapid_apigateway import RapidAPIGateway
 
 logger = logging.getLogger(__name__)
