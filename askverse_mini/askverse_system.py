@@ -34,7 +34,12 @@ def setup_askverse_system(system: str):
     elif system == "apis":
         askverse_system = AskAPIs(oas_dir="oas")
     elif system == "verse":
-        askverse_system = AskVerse(AskEnsemble(document_processor=setup_document_processor()), AskAPIs(oas_dir="oas"))
+        askverse_system = AskVerse(
+            ask_docs=AskDocs(document_processor=setup_document_processor()),
+            ask_wiki=AskWiki(),
+            ask_tavily=AskTavily(),
+            ask_arxiv=AskArxiv()
+        )
     
     askverse_system.initialize()
     askverse_systems[system] = askverse_system

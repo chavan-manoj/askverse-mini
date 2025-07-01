@@ -13,7 +13,7 @@ class PlannerAgent:
     and, given a user question or task, determines which Tools or APIs/methods to call,
     in what sequence, with which parameters, and what further inputs are required.
     """
-    def __init__(self, oas_dir: str = "oas", tools_metadata_path = "metadata/tools.yaml", samples_path: str = "metadata/samples.yaml"):
+    def __init__(self, oas_dir: str = "oas", tools_metadata_path = "metadata/tools.json", samples_path: str = "metadata/samples.json"):
         self.oas_dir = oas_dir
         self.tools_metadata_path = tools_metadata_path
         self.samples_path = samples_path
@@ -21,8 +21,16 @@ class PlannerAgent:
         self.llm = LLM()
         self.api_specs = "".join(self._load_all_specs_as_strings_for_llm())
 
-        self.tools_metadata = self._load_yaml_as_string_for_llm(self.tools_metadata_path)
-        self.samples = self._load_yaml_as_string_for_llm(self.samples_path)
+        self.tools_metadata = self._load_json_as_string_for_llm(self.tools_metadata_path)
+        self.samples = self._load_json_as_string_for_llm(self.samples_path)
+
+    def _load_json_as_string_for_llm(self, filepath) -> Dict[str, Any]:
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"File not found: {filepath}")
+        with open(filepath, "r", encoding="utf-8") as f:
+            json_dict = json.load(f)
+            json_str = json.dumps(json_dict, indent=4).replace("{", "{{").replace("}", "}}")
+            return "\n\n ```json\n" + json_str + "\n```\n"
 
     def _load_yaml_as_string_for_llm(self, filepath) -> Dict[str, Any]:
         if not os.path.exists(filepath):
@@ -48,6 +56,7 @@ class PlannerAgent:
             "Your job is to carefully analyze a user’s question or task, identify which tools and APIs are relevant to the user query (or part of the user query). "
             "If required, break down user query into a minimal set of subqueries, "
             "and plan the exact sequence of tools and API calls required to answer the user query or accomplish the user task. "
+            "When you break down the user query into subqueries, ensure the pronouns and relative terms in the sub query are resolved, "
             "You have access to the following tools, look at the description of each tool to understand when they are relevant, "
             "and refer examples given in same yaml to better understand the scenarios when those tools are relevant. "
             "Decide whether to use docs tool or not based on the metadata of documents it can search on. "
